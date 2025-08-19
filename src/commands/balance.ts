@@ -48,11 +48,12 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const { nwcClient } = accountResult;
     const response: BalanceResponse = await nwcClient.getBalance();
-    const balance: number = response.balance / 1000;
     
-    if (!response || !balance) {
+    if (!response) {
       throw new Error("Error al obtener el balance");
     }
+    
+    const balance: number = response.balance / 1000;
 
     const embed = new EmbedBuilder()
       .setAuthor({
