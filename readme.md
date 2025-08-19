@@ -15,11 +15,15 @@ SALT=123456789 // for sk encrypt
 # Start bot
 
 ```
-yarn install
+pnpm install
 ```
 
 ```
-yarn start
+pnpm build
+```
+
+```
+pnpm start
 ```
 
 # Run docker
