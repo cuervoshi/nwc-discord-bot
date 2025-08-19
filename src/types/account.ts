@@ -1,0 +1,8 @@
+import { Document } from "mongoose";
+
+export interface Account extends Document {
+  _id: string;
+  discord_id: string;
+  discord_username: string;
+  nwc_uri: string;
+}

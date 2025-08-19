@@ -1,0 +1,8 @@
+# Folders
+/.git
+/dist
+/node_modules
+
+# Files
+/npm-debug.log
+.env.example

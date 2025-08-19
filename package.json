@@ -1,0 +1,54 @@
+{
+	"name": "lightning-bot",
+	"version": "1.0.0",
+	"description": "Lightning Network Zaps bot",
+	"main": "Bot.js",
+	"keywords": [],
+	"author": "Cuervo",
+	"license": "MIT",
+	"dependencies": {
+		"@getalby/sdk": "^6.0.0",
+		"@lawallet/sdk": "0.1.42",
+		"@nostr-dev-kit/ndk": "^2.10.0",
+		"bolt11": "^1.4.1",
+		"chalk": "^5.3.0",
+		"crypto-js": "^4.2.0",
+		"dedent-js": "^1.0.1",
+		"discord.js": "^14.15.3",
+		"dotenv": "^16.4.5",
+		"lnurl-pay": "^3.0.1",
+		"mongoose": "^8.6.0",
+		"qrcode": "^1.5.4",
+		"ws": "^8.18.0"
+	},
+	"imports": {
+		"#events/*": "./dist/events/*.js",
+		"#commands/*": "./dist/commands/*.js",
+		"#components/*": "./dist/components/*.js",
+		"#handlers/*": "./dist/handlers/*.js",
+		"#utils/*": "./dist/utils/*.js",
+		"#schemas/*": "./dist/schemas/*.js"
+	},
+	"type": "module",
+	"scripts": {
+		"start": "node dist/Bot.js",
+		"dev": "tsc && node dist/Bot.js",
+		"build": "tsc",
+		"watch": "tsc --watch",
+		"type-check": "tsc --noEmit",
+		"clean": "rm -rf dist"
+	},
+	"overrides": {
+		"nostr-tools": "npm:@lawallet/nostr-tools@2.7.2"
+	},
+	"yarn": {
+		"overrides": {
+			"nostr-tools": "npm:@lawallet/nostr-tools@2.7.2"
+		}
+	},
+	"devDependencies": {
+		"@types/crypto-js": "^4.2.2",
+		"@types/node": "^24.3.0",
+		"typescript": "^5.9.2"
+	}
+}
