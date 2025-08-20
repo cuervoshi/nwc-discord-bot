@@ -94,7 +94,7 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     if (satsPerUser < FAUCET_CONFIG.MIN_SATS_PER_USER) {
       await interaction.editReply({
         content: `❌ **Error:** Con ${amount} satoshis para ${users} personas, cada uno recibiría menos de ${FAUCET_CONFIG.MIN_SATS_PER_USER} satoshi.\n\n` +
-          `🎁 **Cada persona recibiría:** ${satsPerUser} satoshis\n\n` +
+          `**Cada persona recibiría:** ${satsPerUser} satoshis\n\n` +
           ` **Sugerencias:**\n` +
           `• Aumenta el monto total\n` +
           `• Reduce la cantidad de personas\n` +
