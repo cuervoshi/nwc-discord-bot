@@ -293,12 +293,12 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
       );
     }
 
-    if (faucet.owner_id === userId) {
+    /*if (faucet.owner_id === userId) {
       return FollowUpEphemeralResponse(
         interaction,
         "No puedes reclamar tu propio faucet"
       );
-    }
+    }*/
 
     if (faucet.claimersIds.includes(userId)) {
       return FollowUpEphemeralResponse(

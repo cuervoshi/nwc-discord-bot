@@ -9,7 +9,7 @@ import { getAndValidateAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
 } from "../utils/helperFunctions.js";
-import { FAUCET_CONFIG, FAUCET_COMMISSION } from "../utils/faucetConfig.js";
+import { FAUCET_CONFIG } from "../utils/faucetConfig.js";
 import { log } from "../handlers/log.js";
 
 interface AccountResult {
@@ -52,7 +52,6 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         .setDescription(
           `❌ **No tienes saldo suficiente para crear un faucet.**\n\n` +
           `💰 **Tu saldo actual:** ${balance} satoshis\n` +
-          `💸 **Comisión requerida:** ${FAUCET_COMMISSION} satoshis\n` +
           `🎁 **Mínimo para regalar:** 1 satoshi\n` +
           `📊 **Total mínimo necesario:** ${FAUCET_CONFIG.MINIMUM_BALANCE} satoshis\n\n` +
           `**Necesitas al menos ${FAUCET_CONFIG.MINIMUM_BALANCE - balance} satoshis más para crear un faucet.**\n\n` +
@@ -78,9 +77,8 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         `**Información importante:**\n` +
         `• El monto que elijas se dividirá entre la cantidad de personas\n` +
         `• **Fórmula:** \`Monto total / cantidad de personas = sats por persona\`\n` +
-        `• Se cobrará **${FAUCET_COMMISSION} satoshis de comisión** para crear este faucet\n\n` +
         
-        `**Ejemplo:** Si seleccionas 100 sats para 10 personas, cada persona que reclame recibirá 10 sats. Esto te costaría ${100 + FAUCET_COMMISSION} satoshis en total.\n\n` +
+        `**Ejemplo:** Si seleccionas 100 sats para 10 personas, cada persona que reclame recibirá 10 sats.\n\n` +
         
         `**Tu saldo actual:** ${balance} satoshis\n\n`);
       

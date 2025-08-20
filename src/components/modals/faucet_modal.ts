@@ -1,7 +1,7 @@
 import { log } from "../../handlers/log.js";
 import { validateAmountAndBalance } from "../../utils/helperFunctions.js";
 import { getAndValidateAccount, getServiceAccount } from "../../handlers/accounts.js";
-import { FAUCET_CONFIG, FAUCET_COMMISSION } from "../../utils/faucetConfig.js";
+import { FAUCET_CONFIG } from "../../utils/faucetConfig.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ModalSubmitInteraction } from "discord.js";
 
@@ -70,16 +70,15 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     const { balance: userBalance } = userAccount;
     
     const satsPerUser = Math.floor(amount / users);
-    const actualAmount = satsPerUser * users; 
-    const totalCost = actualAmount + FAUCET_COMMISSION;
+    const totalCost = satsPerUser * users; 
 
     const balanceValidation: BalanceValidationResult = validateAmountAndBalance(totalCost, userBalance || 0);
     if (!balanceValidation.status) {
       await interaction.editReply({
         content: `❌ **Saldo insuficiente:** ${balanceValidation.content}\n\n` +
           `💰 **Tu saldo:** ${userBalance} satoshis\n` +
-          `💸 **Total necesario:** ${totalCost} satoshis (${actualAmount} + ${FAUCET_COMMISSION} de comisión)\n\n` +
-          `ℹ️ **Nota:** De ${amount} sats solicitados, se distribuirán ${actualAmount} sats (${amount - actualAmount} sats se pierden por división)`,
+          `💸 **Total necesario:** ${totalCost} satoshis\n\n` +
+          `ℹ️ **Nota:** De ${amount} sats solicitados, se distribuirán ${totalCost} sats (${amount - totalCost} sats se pierden por división)`,
       });
       return;
     }
@@ -104,7 +103,7 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
       return;
     }
 
-    await createFaucetWithMessage(interaction, actualAmount, users, satsPerUser, totalCost, userAccount, serviceAccount);
+    await createFaucetWithMessage(interaction, users, satsPerUser, totalCost, userAccount, serviceAccount);
 
   } catch (err: any) {
     log(`Error procesando modal para @${interaction.user.username}: ${err.message}`, "err");
@@ -124,7 +123,6 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
 
 const createFaucetWithMessage = async (
   interaction: ModalSubmitInteraction, 
-  actualAmount: number, 
   users: number, 
   satsPerUser: number, 
   totalCost: number, 
@@ -132,7 +130,7 @@ const createFaucetWithMessage = async (
   serviceAccount: ServiceAccountResult
 ): Promise<void> => {
   try {
-    log(`@${interaction.user.username} creando faucet: ${actualAmount} sats para ${users} usuarios (${satsPerUser} sats cada uno)`, "info");
+    log(`@${interaction.user.username} creando faucet: ${totalCost} sats para ${users} usuarios (${satsPerUser} sats cada uno)`, "info");
 
     if (!serviceAccount.nwcClient) {
       throw new Error("No se pudo obtener la cuenta de servicio");
@@ -140,7 +138,7 @@ const createFaucetWithMessage = async (
 
     const invoice = await serviceAccount.nwcClient.makeInvoice({
       amount: totalCost * 1000,
-      description: `Faucet de ${interaction.user.username}: ${actualAmount} sats para ${users} usuarios`,
+      description: `Faucet de ${interaction.user.username}: ${totalCost} sats para ${users} usuarios`,
     });
 
     log(`Invoice creado en cuenta de servicio: ${invoice.invoice}`, "info");
@@ -186,7 +184,7 @@ const createFaucetWithMessage = async (
           }`,
         },
         {
-          name: `Restantes: ${actualAmount}/${actualAmount} sats`,
+          name: `Restantes: ${totalCost}/${totalCost} sats`,
           value: `${":x:".repeat(users)} \n\n`,
         },
       ])
@@ -220,13 +218,10 @@ const createFaucetWithMessage = async (
 
     await interaction.editReply({
       content: `🎉 **¡Faucet creado exitosamente!**\n\n` +
-        `💰 **Monto total:** ${actualAmount} satoshis\n` +
+        `💰 **Monto total:** ${totalCost} satoshis\n` +
         `👥 **Personas:** ${users}\n` +
         `🎁 **Cada uno recibe:** ${satsPerUser} satoshis\n` +
-        ` **Comisión:** ${FAUCET_COMMISSION} satoshis\n` +
-        ` **Total cobrado:** ${totalCost} satoshis\n\n` +
         `✅ **Fondos transferidos a la cuenta de servicio**\n` +
-        `📢 **Mensaje público enviado al canal**\n` +
         `El faucet está disponible para que otros usuarios lo reclamen.`,
     });
 
