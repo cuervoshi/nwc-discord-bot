@@ -1,15 +1,22 @@
-# Discord.js v14 - LaWallet Bot
+# Discord.js v14 - NWC Zap Bot
 
 Rename .env.example to .env and replace your enviroment vars:
 
 ```env
+# Discord bot authentication token
 BOT_TOKEN=YOUR_BOT_TOKEN_ID
+
+# MongoDB database connection URI
 MONGODB_URI=mongodb+srv://<username>:<password>@<url>/<dbname>
 
+# Crypta pool address for donations
 POOL_ADDRESS=pozo@lacrypta.ar
+
+# Nostr Wallet Connect URI for bot account (manages faucet funds)
 SERVICE_NWC_URI=nostr+walletconnect://...
 
-SALT=123456789 // for sk encrypt
+# Salt for encrypting the nwc_uri
+SALT=123456789
 ```
 
 # Start bot
