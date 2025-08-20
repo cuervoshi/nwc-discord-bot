@@ -4,8 +4,8 @@ interface AuthorConfigType {
 }
 
 const AuthorConfig: AuthorConfigType = {
-  name: "LaWallet Bot",
-  iconURL: "https://app.lawallet.ar/icons/icon-512x512.png",
+  name: "NWC Zap Bot",
+  iconURL: "https://cdn.discordapp.com/avatars/1137772340466438306/2bafb5be3bb6cbfc526c075803219b99?size=256",
 };
 
 export { AuthorConfig };
