@@ -19,11 +19,11 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
     await interaction.deferReply({ ephemeral: true });
 
     const payUrl = interaction.message.embeds[0].fields.find(
-      (field) => field.name === "Solicitud de pago"
+      (field) => field.name === "Payment request"
     );
 
     const amountOnSats = interaction.message.embeds[0].fields.find(
-      (field) => field.name === "monto (sats)"
+      (field) => field.name === "amount (sats)"
     );
 
     if (payUrl && amountOnSats) {
@@ -31,25 +31,25 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
       const satsBalance: number = userWallet.balance || 0;
 
       if (!userWallet.success || !userWallet.nwcClient) {
-        throw new Error("No se pudo obtener la cuenta del usuario");
+        throw new Error("Could not get user account");
       }
 
       if (satsBalance < parseInt(amountOnSats.value)) {
         return FollowUpEphemeralResponse(
           interaction,
-          `No tienes balance suficiente para pagar esta factura. \nTu balance: ${satsBalance} - Requerido: ${amountOnSats.value}`
+          `You don't have enough balance to pay this invoice. \nYour balance: ${satsBalance} - Required: ${amountOnSats.value}`
         );
       } else {
         const response = await userWallet.nwcClient.payInvoice({
           invoice: payUrl.value,
         });
 
-        if (!response) throw new Error("Error al pagar la factura");
+        if (!response) throw new Error("Error paying invoice");
 
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents([
           new ButtonBuilder()
             .setCustomId("pay")
-            .setLabel(`Pagada por @${interaction.user.username}`)
+            .setLabel(`Paid by @${interaction.user.username}`)
             .setEmoji({ name: `💸` })
             .setStyle(2)
             .setDisabled(true),
@@ -58,16 +58,16 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
         await interaction.message.edit({ components: [row] });
 
         await interaction.editReply({
-          content: "Interacción con pago de factura completada.",
+          content: "Invoice payment interaction completed.",
         });
       }
     }
   } catch (err: any) {
     log(
-      `Error cuando @${interaction.user.username} intentó pagar una factura de /solicitar - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error when @${interaction.user.username} tried to pay an invoice from /request - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
-    return FollowUpEphemeralResponse(interaction, "Ocurrió un error");
+    return FollowUpEphemeralResponse(interaction, "An error occurred");
   }
 };
 

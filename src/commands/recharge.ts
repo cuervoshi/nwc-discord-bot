@@ -1,8 +1,8 @@
 import {
-  AttachmentBuilder,
-  EmbedBuilder,
   SlashCommandBuilder,
+  EmbedBuilder,
   ChatInputCommandInteraction,
+  AttachmentBuilder,
 } from "discord.js";
 import { getAndValidateAccount } from "../handlers/accounts.js";
 import {
@@ -10,27 +10,16 @@ import {
 } from "../utils/helperFunctions.js";
 import QRCode from "qrcode";
 import { log } from "../handlers/log.js";
-
-interface InvoiceDetails {
-  invoice: string;
-}
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: {
-    makeInvoice: (params: { amount: number; description: string }) => Promise<InvoiceDetails>;
-  };
-}
+import { AccountResult, InvoiceResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("recargar")
-    .setDescription("Recarga tu cuenta de lightning network con una factura")
+    .setName("recharge")
+    .setDescription("Recharge your lightning network account with an invoice")
     .addNumberOption((opt) =>
       opt
-        .setName("monto")
-        .setDescription("La cantidad de satoshis a pagar en la factura")
+        .setName("amount")
+        .setDescription("The amount of satoshis to pay in the invoice")
         .setRequired(true)
     );
 
@@ -44,30 +33,30 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     await interaction.deferReply({ ephemeral: true });
 
-    const montoOption = interaction.options.get('monto');
-    if (!montoOption || typeof montoOption.value !== 'number') {
-      throw new Error("Monto is required and must be a number");
+    const amountOption = interaction.options.get('amount');
+    if (!amountOption || typeof amountOption.value !== 'number') {
+      throw new Error("Amount is required and must be a number");
     }
 
-    const amount: number = parseInt(montoOption.value.toString());
+    const amount: number = parseInt(amountOption.value.toString());
 
-    log(`@${user.username} ejecutó /recargar ${amount}`, "info");
+    log(`@${user.username} executed /recharge ${amount}`, "info");
 
     if (amount <= 0) {
       return EphemeralMessageResponse(
         interaction,
-        "No se permiten saldos negativos"
+        "Negative balances are not allowed"
       );
     }
 
     const wallet: AccountResult = await getAndValidateAccount(interaction, user.id);
     if (!wallet.success || !wallet.nwcClient) {
-      return EphemeralMessageResponse(interaction, wallet.message || "Error al obtener la cuenta");
+      return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }
 
-    const invoiceDetails: InvoiceDetails = await wallet.nwcClient.makeInvoice({ 
+    const invoiceDetails: InvoiceResult = await wallet.nwcClient.makeInvoice({ 
       amount: amount * 1000, 
-      description: `Recargar ${amount} sats a la billetera de discord del usuario ${interaction.user.username}` 
+      description: `Recharge ${amount} sats to the discord wallet of user ${interaction.user.username}` 
     });
 
     const qrData: string = await QRCode.toDataURL(invoiceDetails.invoice);
@@ -78,17 +67,17 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       .setImage('attachment://image.png')
       .addFields([
         {
-          name: "Solicitud de pago",
+          name: "Payment request",
           value: `${invoiceDetails.invoice}`,
         },
         {
-          name: "monto",
+          name: "amount",
           value: `${amount}`,
         },
       ]);
 
     log(
-      `@${user.username} ejecutó /recargar ${amount} y se le creo un invoice: ${invoiceDetails.invoice}`,
+      `@${user.username} executed /recharge ${amount} and an invoice was created: ${invoiceDetails.invoice}`,
       "info"
     );
 
@@ -98,10 +87,10 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     });
   } catch (err: any) {
     log(
-      `Error en el comando /recargar ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /recharge command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
-    EphemeralMessageResponse(interaction, "Ocurrió un error");
+    EphemeralMessageResponse(interaction, "An error occurred");
   }
 };
 

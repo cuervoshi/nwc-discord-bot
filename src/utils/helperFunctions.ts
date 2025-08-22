@@ -1,57 +1,30 @@
-import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
-import { log } from "../handlers/log.js";
 import SimpleCache from "../handlers/SimpleCache.js";
 import { NWCClient } from "@getalby/sdk";
-import bolt11 from 'bolt11';
-import { Interaction, TextChannel, BaseInteraction } from "discord.js";
-
-interface ValidationResult {
-  valid: boolean;
-  error?: string;
-}
-
-interface ConnectionTestResult {
-  valid: boolean;
-  balance?: number;
-  error?: string;
-}
-
-interface BalanceValidationResult {
-  status: boolean;
-  content: string;
-}
-
-interface BOLT11ValidationResult {
-  valid: boolean;
-  error?: string;
-  decoded?: any;
-  amount?: number;
-  description?: string;
-  timestamp?: number;
-  expiry?: number;
-}
+import bolt11, { PaymentRequestObject, TagsObject } from 'bolt11';
+import { TextChannel, BaseInteraction } from "discord.js";
+import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11ValidationResult } from "../types/index.js";
 
 export const signupCache = new SimpleCache();
 
 export const validateNWCURI = (nwcUri: string): ValidationResult => {
   try {
     if (!nwcUri || typeof nwcUri !== 'string') {
-      return { valid: false, error: 'El URI de NWC no puede estar vacío' };
+      return { valid: false, error: 'The NWC URI cannot be empty' };
     }
 
     if (!nwcUri.startsWith('nostr+walletconnect://')) {
-      return { valid: false, error: 'El URI debe comenzar con "nostr+walletconnect://"' };
+      return { valid: false, error: 'The URI must start with "nostr+walletconnect://"' };
     }
 
     const uriParts = nwcUri.replace('nostr+walletconnect://', '').split('?');
     if (uriParts.length !== 2) {
-      return { valid: false, error: 'Formato de URI inválido' };
+      return { valid: false, error: 'Invalid URI format' };
     }
 
     const [pubkey, params] = uriParts;
     
     if (!/^[0-9a-fA-F]{64}$/.test(pubkey)) {
-      return { valid: false, error: 'Clave pública inválida' };
+      return { valid: false, error: 'Invalid public key' };
     }
 
     const searchParams = new URLSearchParams(params);
@@ -59,22 +32,22 @@ export const validateNWCURI = (nwcUri: string): ValidationResult => {
     const secret = searchParams.get('secret');
 
     if (!relay) {
-      return { valid: false, error: 'Falta el parámetro "relay"' };
+      return { valid: false, error: 'Missing "relay" parameter' };
     }
 
     if (!secret) {
-      return { valid: false, error: 'Falta el parámetro "secret"' };
+      return { valid: false, error: 'Missing "secret" parameter' };
     }
 
     try {
       new URL(relay);
     } catch {
-      return { valid: false, error: 'URL del relay inválida' };
+      return { valid: false, error: 'Invalid relay URL' };
     }
 
     return { valid: true };
   } catch (error: any) {
-    return { valid: false, error: 'Error al validar el URI' };
+    return { valid: false, error: 'Error validating the URI' };
   }
 };
 
@@ -91,7 +64,7 @@ export const testNWCConnection = async (nwcUri: string): Promise<ConnectionTestR
   } catch (error: any) {
     return { 
       valid: false, 
-      error: `Error de conexión: ${error.message}` 
+      error: `Connection error: ${error.message}` 
     };
   }
 };
@@ -108,13 +81,13 @@ const validateAmountAndBalance = (amount: number, balance: number): BalanceValid
   if (amount <= 0)
     return {
       status: false,
-      content: "No puedes usar números negativos o flotantes",
+      content: "You cannot use negative numbers or decimals",
     };
 
   if (amount > balance)
     return {
       status: false,
-      content: `No tienes saldo suficiente para realizar esta acción. \nRequerido: ${amount} - balance en tu billetera: ${balance}`,
+      content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${balance}`,
     };
 
   return {
@@ -175,47 +148,47 @@ const FollowUpEphemeralResponse = async (interaction: BaseInteraction, content: 
 export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationResult => {
   try {
     if (!bolt11String || typeof bolt11String !== 'string') {
-      return { valid: false, error: 'El BOLT11 no puede estar vacío' };
+      return { valid: false, error: 'The BOLT11 cannot be empty' };
     }
 
-    const decoded = bolt11.decode(bolt11String);
+    const decoded: PaymentRequestObject & { tagsObject: TagsObject } = bolt11.decode(bolt11String);
     
     if (!decoded) {
-      return { valid: false, error: 'No se pudo decodificar el BOLT11' };
+      return { valid: false, error: 'Could not decode the BOLT11' };
     }
 
-    if (!decoded.satoshis && (decoded as any).millisatoshis) {
-      (decoded as any).satoshis = Math.floor((decoded as any).millisatoshis / 1000);
+    if (!decoded.satoshis && decoded.millisatoshis) {
+      decoded.satoshis = Math.floor(Number(decoded.millisatoshis) / 1000);
     }
 
     if (!decoded.satoshis) {
-      return { valid: false, error: 'El BOLT11 no tiene un monto válido' };
+      return { valid: false, error: 'The BOLT11 does not have a valid amount' };
     }
 
     return {
       valid: true,
       decoded,
       amount: decoded.satoshis,
-      description: (decoded as any).description || 'Sin descripción',
-      timestamp: (decoded as any).timestamp,
-      expiry: (decoded as any).expiry
+      description: decoded.tagsObject?.description || 'No description',
+      timestamp: decoded.timestamp,
+      timeExpireDate: decoded.timeExpireDate
     };
 
   } catch (error: any) {
     return { 
       valid: false, 
-      error: `Error al decodificar BOLT11: ${error.message}` 
+      error: `Error decoding BOLT11: ${error.message}` 
     };
   }
 };
 
-export const isBOLT11Expired = (decodedBOLT11: any): boolean => {
-  if (!decodedBOLT11.timestamp || !decodedBOLT11.expiry) {
+export const isBOLT11Expired = (decodedBOLT11: BOLT11ValidationResult['decoded']): boolean => {
+  if (!decodedBOLT11?.timestamp || !decodedBOLT11?.timeExpireDate) {
     return false;
   }
 
   const currentTime = Math.floor(Date.now() / 1000);
-  const expiryTime = decodedBOLT11.timestamp + decodedBOLT11.expiry;
+  const expiryTime = decodedBOLT11.timestamp + decodedBOLT11.timeExpireDate;
   
   return currentTime > expiryTime;
 };

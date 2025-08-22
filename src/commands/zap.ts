@@ -3,30 +3,25 @@ import { updateUserRank } from "../handlers/donate.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
 import { zap } from "../handlers/zap.js";
-
-interface ZapResult {
-  success: boolean;
-  message: string;
-}
-
+import { ZapResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
     .setName("zap")
-    .setDescription("Regala sats a un usuario en discord")
+    .setDescription("Send sats to a user in discord")
     .addUserOption((opt) =>
-      opt.setName("user").setDescription("Usuario a zappear").setRequired(true)
+      opt.setName("user").setDescription("User to zap").setRequired(true)
     )
     .addNumberOption((opt) =>
       opt
-        .setName("monto")
-        .setDescription("La cantidad de satoshis a transferir")
+        .setName("amount")
+        .setDescription("The amount of satoshis to transfer")
         .setRequired(true)
     )
     .addStringOption((opt) =>
       opt
         .setName("message")
-        .setDescription("Un mensaje de la transferencia")
+        .setDescription("A message for the transfer")
         .setRequired(false)
     );
 
@@ -42,22 +37,22 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     await interaction.deferReply({ ephemeral: true });
 
     const receiverOption = interaction.options.get('user');
-    const montoOption = interaction.options.get('monto');
+    const amountOption = interaction.options.get('amount');
     const messageOption = interaction.options.get('message');
-    
+
     if (!receiverOption || !receiverOption.user) {
       throw new Error("User option is required");
     }
-    
-    if (!montoOption || typeof montoOption.value !== 'number') {
-      throw new Error("Monto is required and must be a number");
+
+    if (!amountOption || typeof amountOption.value !== 'number') {
+      throw new Error("Amount is required and must be a number");
     }
 
     const receiver = receiverOption;
-    const amount: number = parseInt(montoOption.value.toString());
+    const amount: number = parseInt(amountOption.value.toString());
 
     log(
-      `@${user.username} ejecutó /zap ${receiver.user.username} ${amount}`,
+      `@${user.username} executed /zap ${receiver.user.username} ${amount}`,
       "info"
     );
 
@@ -67,14 +62,24 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const zapMessage: string = messageOption && typeof messageOption.value === 'string'
       ? messageOption.value
-      : `${user.username} te envío ${amount} sats a través de discord`;
+      : `${user.username} sent you ${amount} sats through discord`;
 
-    const onSuccess = async () => {
+    const result: ZapResult = await zap(
+      interaction,
+      user,
+      receiverData.user,
+      amount,
+      zapMessage
+    );
+
+    if (!result.success) {
+      return EphemeralMessageResponse(interaction, result.message);
+    } else {
       try {
         await updateUserRank(interaction.user.id, "comunidad", amount);
 
         log(
-          `@${user.username} pago la factura del zap hacia @${receiver.user.username}`,
+          `@${user.username} paid the zap invoice to @${receiver.user.username}`,
           "info"
         );
 
@@ -82,46 +87,21 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
         if (interaction.channel && interaction.channel.isTextBased()) {
           await interaction.channel.send({
-            content: `${interaction.user.toString()} envió ${amount} satoshis a ${receiverData.toString()}`,
+            content: `${interaction.user.toString()} sent ${amount} satoshis to ${receiverData.toString()}`,
           });
         }
       } catch (err: any) {
         console.log(err);
-        EphemeralMessageResponse(interaction, "Ocurrió un error");
+        EphemeralMessageResponse(interaction, "An error occurred");
       }
-    };
-
-    const onError = () => {
-      log(
-        `@${user.username} tuvo un error al realizar el pago del zap hacia @${receiver.user.username}`,
-        "err"
-      );
-
-      EphemeralMessageResponse(interaction, "Ocurrió un error");
-    };
-
-    const result: ZapResult = await zap(
-      interaction,
-      user,
-      receiverData.user,
-      amount,
-      onSuccess,
-      onError,
-      zapMessage
-    );
-
-    if (!result.success) {
-      return EphemeralMessageResponse(interaction, result.message);
-    } else {
-      await onSuccess();
     }
   } catch (err: any) {
     log(
-      `Error en el comando /zap ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /zap command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
-    EphemeralMessageResponse(interaction, "Ocurrió un error");
+    EphemeralMessageResponse(interaction, "An error occurred");
   }
 };
 

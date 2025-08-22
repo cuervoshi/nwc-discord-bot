@@ -42,13 +42,15 @@ docker-compose up --build
 # Available commands
 
 ```bash
-/balance: Devuelve el saldo de tu billetera.
-/donar monto: <integer>: Realiza donaciones al pozo de la crypta.
-/pagar bolt11: <string>: Paga una factura de lightning network
-/recargar monto: <integer> : Recarga tu cuenta de lightning network con una factura
-/retirar address: <string> usos: <integer> : Retira satoshis a una cuenta externa a discord
-/solicitar monto: <integer> descripcion: <string> : Solicitar que te paguen una factura
-/regalar: Crea una factura abierta que cualquier usuario puede reclamar
-/top tipo: <"pozo" | "comunidad"> : Devuelve el ranking TOP 10 usuarios que enviaron sats
-/zap user: <user> monto: <integer> message: <string>: Regala sats a un usuario en discord
+/balance: Returns your wallet balance.
+/donate amount: <integer>: Make donations to the crypta pool.
+/pay bolt11: <string>: Pay a lightning network invoice
+/recharge amount: <integer> : Recharge your lightning network account with an invoice
+/send address: <string> amount: <integer> : Withdraw satoshis to an external account outside discord
+/request amount: <integer> description: <string> : Request payment for an invoice
+/gift: Create an open invoice that any user can claim
+/top type: <"pool" | "community"> : Returns the TOP 10 ranking of users who sent sats
+/zap user: <user> amount: <integer> message: <string>: Send sats to a user in discord
+/connect nwc_uri: <string>: Connect your wallet through Nostr Wallet Connect
+/help: Get help about commands
 ```

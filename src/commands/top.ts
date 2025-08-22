@@ -16,12 +16,12 @@ const availableTypes = ["pozo", "comunidad"];
 const create = () => {
   const command = new SlashCommandBuilder()
     .setName("top")
-    .setDescription("Devuelve el ranking TOP 10 usuarios que enviaron sats")
+    .setDescription("Returns the TOP 10 ranking of users who sent sats")
     .addStringOption((opt) =>
       opt
-        .setName("tipo")
+        .setName("type")
         .setDescription(
-          "Solicita un ranking específico (parametros: pozo o comunidad)"
+          "Request a specific ranking (parameters: pool or community)"
         )
         .setRequired(false)
     );
@@ -37,16 +37,16 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     await interaction.deferReply();
 
-    const typeParam = interaction.options.get('tipo');
+    const typeParam = interaction.options.get('type');
 
     const cleanedType: string =
       typeParam?.value && typeof typeParam.value === 'string' && availableTypes.includes(typeParam.value)
         ? typeParam.value
-        : "pozo";
+        : "pool";
 
-    log(`@${user.username} ejecutó /top ${cleanedType}`, "info");
+    log(`@${user.username} executed /top ${cleanedType}`, "info");
 
-    const isPool: boolean = cleanedType === "pozo";
+    const isPool: boolean = cleanedType === "pool";
 
     const topUsers: TopUser[] = await getTopRanking(cleanedType);
 
@@ -72,15 +72,15 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       });
 
       const title: string = isPool
-        ? "TOP 10 • donadores al pozo"
-        : "TOP 10 • usuarios que regalaron sats";
+        ? "TOP 10 • pool donors"
+        : "TOP 10 • users who gifted sats";
 
       const informationText: string = isPool
-        ? "Puedes realizar donaciones utilizando el comando /donar <monto>"
-        : "Puedes regalar sats con los comandos /zap y /regalar";
+        ? "You can make donations using the /donate <amount> command"
+        : "You can gift sats with the /zap and /gift commands";
 
       const totalDonated: number = await getSumOfDonationAmounts(
-        isPool ? "pozo" : "comunidad"
+        isPool ? "pool" : "community"
       );
 
       const embed = new EmbedBuilder()
@@ -89,11 +89,11 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         .addFields(
           { name: title, value: rankOutput },
           {
-            name: isPool ? "Total donado" : "Total enviado",
+            name: isPool ? "Total donated" : "Total sent",
             value: `${formatter(0, 0).format(totalDonated)}`,
           },
           {
-            name: "Información",
+            name: "Information",
             value: informationText,
           }
         );
@@ -101,8 +101,8 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       await interaction.editReply({ embeds: [embed] });
     } else {
       const content: string = isPool
-        ? "Aún no hay usuarios que hayan donado al pozo."
-        : "Aún no hay usuarios que hayan enviado sats.";
+        ? "There are no users who have donated to the pool yet."
+        : "There are no users who have sent sats yet.";
 
       await interaction.editReply({
         content,
@@ -110,12 +110,12 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     }
   } catch (err: any) {
     log(
-      `Error en el comando /top ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /top command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
     await interaction.editReply({
-      content: "Ocurrió un error al obtener el ranking",
+      content: "An error occurred while getting the ranking",
     });
   }
 };

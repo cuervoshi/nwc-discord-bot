@@ -1,30 +1,19 @@
-import { getAndValidateAccount, getServiceAccount } from "../handlers/accounts.js";
+import { getAndValidateAccount } from "../handlers/accounts.js";
 import { log } from "../handlers/log.js";
 import { validateAmountAndBalance } from "../utils/helperFunctions.js";
 import { Interaction, User } from "discord.js";
-
-interface ZapResult {
-  success: boolean;
-  message: string;
-}
-
-interface BalanceValidationResult {
-  status: boolean;
-  content: string;
-}
+import { ZapResult, BalanceValidationResult } from "../types/index.js";
 
 const zap = async (
   interaction: Interaction,
   sender: User,
   receiver: User,
   amount: number,
-  onSuccess: () => void,
-  onError: () => void,
   zapMessage: string
 ): Promise<ZapResult> => {
   try {
     if (amount <= 0)
-      return { success: false, message: "No se permiten saldos negativos" };
+      return { success: false, message: "Negative balances are not allowed" };
 
     const senderWallet = await getAndValidateAccount(interaction, sender.id);
 
@@ -32,27 +21,25 @@ const zap = async (
       interaction,
       receiver.id
     );
-
-    //const receiverWallet = await getServiceAccount(interaction);
-
+    
     if (!senderWallet.success) {
       return {
         success: false,
-        message: senderWallet.message || "Error desconocido"
+        message: senderWallet.message || "Unknown error"
       }
     };
 
     if (!receiverWallet.success) {
       return {
         success: false,
-        message: receiverWallet.message || "Error desconocido"
+        message: receiverWallet.message || "Unknown error"
       }
     };
 
     if (senderWallet.userAccount?.discord_id === receiverWallet.userAccount?.discord_id)
       return {
         success: false,
-        message: "No puedes enviarte sats a vos mismo.",
+        message: "You cannot send sats to yourself.",
       };
 
     const senderBalance = senderWallet.balance || 0;
@@ -70,7 +57,7 @@ const zap = async (
     });
 
     log(
-      `@${sender.username} va a pagar la factura ${invoiceDetails.invoice}`,
+      `@${sender.username} is going to pay the invoice ${invoiceDetails.invoice}`,
       "info"
     );
 
@@ -78,16 +65,16 @@ const zap = async (
       invoice: invoiceDetails.invoice,
     });
 
-    if (!response) throw new Error("Error al realizar el pago");
+    if (!response) throw new Error("Error processing the payment");
 
-    return { success: true, message: "Pago realizado con exito" };
+    return { success: true, message: "Payment completed successfully" };
   } catch (err: any) {
     log(
-      `Error al enviar zap de @${sender.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error sending zap from @${sender.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
-    return { success: false, message: "Ocurrió un error al realizar el pago" };
+    return { success: false, message: "An error occurred while processing the payment" };
   }
 };
 

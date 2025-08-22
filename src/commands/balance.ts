@@ -7,23 +7,16 @@ import { getAndValidateAccount } from "../handlers/accounts.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
+import { AccountResult } from "../types/index.js";
 
 interface BalanceResponse {
   balance: number;
 }
 
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: {
-    getBalance: () => Promise<BalanceResponse>;
-  };
-}
-
 const create = () => {
   const command = new SlashCommandBuilder()
     .setName("balance")
-    .setDescription("Devuelve el saldo de tu billetera.");
+    .setDescription("Returns your wallet balance.");
 
   return command.toJSON();
 };
@@ -35,29 +28,29 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     const user = interaction.user;
     if (!user) throw new Error("No user interaction found");
 
-    log(`@${user.username} utilizó /balance`, "info");
+    log(`@${user.username} used /balance`, "info");
 
     const accountResult: AccountResult = await getAndValidateAccount(interaction, user.id);
     if (!accountResult.success) {
-      return EphemeralMessageResponse(interaction, accountResult.message || "Error desconocido");
+      return EphemeralMessageResponse(interaction, accountResult.message || "Unknown error");
     }
 
     if (!accountResult.nwcClient) {
-      throw new Error("No se pudo obtener el cliente NWC");
+      throw new Error("Could not get NWC client");
     }
 
     const { nwcClient } = accountResult;
     const response: BalanceResponse = await nwcClient.getBalance();
     
     if (!response) {
-      throw new Error("Error al obtener el balance");
+      throw new Error("Error getting balance");
     }
     
     const balance: number = response.balance / 1000;
 
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: "Información de tu cuenta",
+        name: "Your Account Information",
         iconURL: `https://cdn.discordapp.com/avatars/${interaction.user.id}/${interaction.user.avatar}`,
       })
       .addFields([
@@ -68,7 +61,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       ]);
 
     log(
-      `Balance de @${user.username} resuelto: ${balance} satoshis`,
+      `Balance for @${user.username} resolved: ${balance} satoshis`,
       "info"
     );
 
@@ -78,12 +71,12 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
   } catch (err: any) {
     log(
-      `Error en el comando /balance ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /balance command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
     await interaction.editReply({
-      content: "❌ Ocurrió un error inesperado al obtener tu balance",
+      content: "❌ An unexpected error occurred while getting your balance",
     });
   }
 };
