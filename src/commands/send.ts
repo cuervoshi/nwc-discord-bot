@@ -16,7 +16,7 @@ const create = () => {
     .addStringOption((opt) =>
       opt
         .setName("address")
-        .setDescription("Lightning network address")
+        .setDescription("Lightning network address (LUD16) or LNURL")
         .setRequired(true)
     )
     .addNumberOption((opt) =>
