@@ -6,6 +6,7 @@ import {
 } from "../utils/helperFunctions.js";
 import { log } from "../handlers/log.js";
 import { ValidationResult, ConnectionTestResult } from "../types/index.js";
+import { formatter } from "#utils/helperFormatter";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -24,7 +25,7 @@ const create = () => {
 const invoke = async (interaction: ChatInputCommandInteraction) => {
   try {
     await interaction.deferReply({ ephemeral: true });
-    
+
     const user = interaction.user;
     if (!user) throw new Error("No user interaction found");
 
@@ -32,9 +33,9 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     if (!nwcUriOption || typeof nwcUriOption.value !== 'string') {
       throw new Error("NWC URI is required and must be a string");
     }
-    
+
     const NWC_URI: string = nwcUriOption.value;
-    
+
     log(`@${user.username} attempted to connect with NWC`, "info");
 
     const formatValidation: ValidationResult = validateNWCURI(NWC_URI);
@@ -76,7 +77,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         },
         {
           name: "Balance",
-          value: `**${connectionTest.balance} satoshis**`,
+          value: `**${formatter(0, 0).format(connectionTest.balance)} satoshis**`,
         },
       ]);
 
