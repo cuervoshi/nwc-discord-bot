@@ -65,7 +65,7 @@ const processFaucetQueue = async (faucetId: string): Promise<void> => {
     const lock = getFaucetLock(faucetId);
     const release = await lock.acquire();
     
-    log(`Lock adquirido para faucet ${faucetId} - Operación: ${operation}`, "info");
+    log(`Lock acquired for faucet ${faucetId} - Operation: ${operation}`, "info");
     
     try {
       if (operation === 'claim') {
@@ -74,7 +74,7 @@ const processFaucetQueue = async (faucetId: string): Promise<void> => {
         await handleClose(faucet, interaction);
       }
     } finally {
-      log(`Lock liberado para faucet ${faucetId}`, "info");
+      log(`Lock released for faucet ${faucetId}`, "info");
       release();
     }
   }
@@ -89,19 +89,19 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     const faucetWallet: ServiceAccountResult = await getServiceAccount(interaction);
 
     if (!userWallet.success || !userWallet.nwcClient) {
-      throw new Error("No se pudo obtener la cuenta del usuario");
+      throw new Error("Could not get user account");
     }
 
     const invoiceDetails: InvoiceDetails = await userWallet.nwcClient.makeInvoice({
       amount: faucet.amount * 1000,
-      description: `LNBot: Reclamo de faucet`
+      description: `LNBot: Faucet claim`
     });
 
     const response = await faucetWallet.nwcClient.payInvoice({
       invoice: invoiceDetails.invoice,
     });
 
-    if (!response) throw new Error("Error al reclamar el faucet");
+    if (!response) throw new Error("Error claiming faucet");
 
     const content: string = interaction.message.embeds[0].fields[0].value;
     const subStr: number = content.indexOf(">");
@@ -120,13 +120,13 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
 
     FollowUpEphemeralResponse(
       interaction,
-      `Recibiste ${faucet.amount} sats por reclamar este faucet, tu nuevo balance es: ${(
+      `You received ${faucet.amount} sats for claiming this faucet, your new balance is: ${(
         new_user_balance.balance / 1000
       ).toFixed(0)} satoshis`
     );
   } catch (err: any) {
-    log(`Error en handleClaim para @${interaction.user.username}: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "Ocurrió un error al reclamar la factura, intenta nuevamente.");
+    log(`Error in handleClaim for @${interaction.user.username}: ${err.message}`, "err");
+    EphemeralMessageResponse(interaction, "An error occurred while claiming the invoice, please try again.");
   }
 };
 
@@ -135,7 +135,7 @@ const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     const user = interaction.user;
     const faucetId: string = faucet._id.toString();
 
-    log(`${user.username} cerrando faucet ${faucetId}`, "info");
+    log(`${user.username} closing faucet ${faucetId}`, "info");
 
     const wallet: AccountResult = await getAndValidateAccount(interaction, user.id);
     const faucetWallet: ServiceAccountResult = await getServiceAccount(interaction);
@@ -148,7 +148,7 @@ const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Prom
       if (unclaimedAmount > 0) {
         const invoiceDetails: InvoiceDetails = await wallet.nwcClient.makeInvoice({
           amount: unclaimedAmount * 1000,
-          description: `LNBot: Reintegro de faucet`
+          description: `LNBot: Faucet refund`
         });
 
         if (invoiceDetails && invoiceDetails.invoice) {
@@ -156,24 +156,24 @@ const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Prom
             invoice: invoiceDetails.invoice,
           });
 
-          if (!response) throw new Error("Error al reintegrar los fondos");
+          if (!response) throw new Error("Error refunding funds");
 
-          log(`${user.username} cerró el faucet ${faucetId} y se le reintegraron ${unclaimedAmount} sats`, "done");
+          log(`${user.username} closed faucet ${faucetId} and was refunded ${unclaimedAmount} sats`, "done");
 
           FollowUpEphemeralResponse(
             interaction,
-            `Cerraste el faucet exitosamente, se reintegraron ${unclaimedAmount} sats`
+            `You successfully closed the faucet, ${unclaimedAmount} sats were refunded`
           );
         }
       } else {
-        FollowUpEphemeralResponse(interaction, "Cerraste el faucet exitosamente. No había fondos para reintegrar.");
+        FollowUpEphemeralResponse(interaction, "You successfully closed the faucet. There were no funds to refund.");
       }
 
       await updateCloseMessage(faucetId, interaction.message);
     }
   } catch (err: any) {
-    log(`Error en handleClose para @${interaction.user.username}: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "Ocurrió un error al cerrar el faucet");
+    log(`Error in handleClose for @${interaction.user.username}: ${err.message}`, "err");
+    EphemeralMessageResponse(interaction, "An error occurred while closing the faucet");
   }
 };
 
@@ -193,23 +193,23 @@ const updateMessage = async (faucetId: string, fieldInfo: any, message: Message)
       .addFields([
         fieldInfo,
         {
-          name: `Restantes: ${faucet.amount * (faucet.maxUses - uses)}/${faucet.amount * faucet.maxUses} sats`,
+          name: `Remaining: ${faucet.amount * (faucet.maxUses - uses)}/${faucet.amount * faucet.maxUses} sats`,
           value: `${":white_check_mark:".repeat(uses)}${faucet.maxUses - uses > 0 ? ":x:".repeat(faucet.maxUses - uses) : ""} \n\n`,
         },
         {
-          name: "Reclamado por:",
+          name: "Claimed by:",
           value: claimersOutput,
         },
       ])
       .setFooter({
-        text: `Identificador: ${faucetId}`,
+        text: `Identifier: ${faucetId}`,
       });
 
     const disabledFaucet: boolean = faucet.maxUses <= uses;
     const components: ButtonBuilder[] = [
       new ButtonBuilder()
         .setCustomId("claim")
-        .setLabel(disabledFaucet ? "Todos los sats han sido reclamados" : `Reclamar`)
+        .setLabel(disabledFaucet ? "All sats have been claimed" : `Claim`)
         .setEmoji({ name: `💸` })
         .setStyle(2)
         .setDisabled(disabledFaucet),
@@ -219,7 +219,7 @@ const updateMessage = async (faucetId: string, fieldInfo: any, message: Message)
       components.push(
         new ButtonBuilder()
           .setCustomId("closefaucet")
-          .setLabel("Cerrar faucet")
+          .setLabel("Close faucet")
           .setEmoji({ name: `✖️` })
           .setStyle(2)
       );
@@ -235,7 +235,7 @@ const updateMessage = async (faucetId: string, fieldInfo: any, message: Message)
     });
   } catch (err: any) {
     console.log(err);
-    await message.edit({ content: "Ocurrió un error" });
+    await message.edit({ content: "An error occurred" });
   }
 };
 
@@ -247,13 +247,13 @@ const updateCloseMessage = async (faucetId: string, message: Message): Promise<v
       .setAuthor(AuthorConfig)
       .addFields(fieldsInfo)
       .setFooter({
-        text: `Identificador: ${faucetId}`,
+        text: `Identifier: ${faucetId}`,
       });
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents([
       new ButtonBuilder()
         .setCustomId("closefaucet")
-        .setLabel("El faucet ha sido cerrado por su autor")
+        .setLabel("The faucet has been closed by its author")
         .setEmoji({ name: `✖️` })
         .setStyle(2)
         .setDisabled(true),
@@ -280,7 +280,7 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
       : false;
 
     if (!faucetId) {
-      return EphemeralMessageResponse(interaction, "No se encontró el faucet");
+      return EphemeralMessageResponse(interaction, "Faucet not found");
     }
 
     const faucet: Faucet = await getFaucet(faucetId);
@@ -289,28 +289,28 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
     if (!faucet) {
       return FollowUpEphemeralResponse(
         interaction,
-        "El faucet que intentas reclamar no se encuentra en la base de datos"
+        "The faucet you are trying to claim is not found in the database"
       );
     }
 
     if (faucet.owner_id === userId) {
       return FollowUpEphemeralResponse(
         interaction,
-        "No puedes reclamar tu propio faucet"
+        "You cannot claim your own faucet"
       );
     }
 
     if (faucet.claimersIds.includes(userId)) {
       return FollowUpEphemeralResponse(
         interaction,
-        "Solo puedes reclamar el premio una vez"
+        "You can only claim the reward once"
       );
     }
 
     if (faucet.closed) {
       return FollowUpEphemeralResponse(
         interaction,
-        "El faucet que intentas reclamar fue cerrado por su autor"
+        "The faucet you are trying to claim was closed by its author"
       );
     }
 
@@ -329,8 +329,8 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
     }
 
   } catch (err: any) {
-    log(`Error cuando @${interaction.user.username} intentó reclamar un faucet: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "Ocurrió un error al reclamar la factura, intenta nuevamente.");
+    log(`Error when @${interaction.user.username} tried to claim a faucet: ${err.message}`, "err");
+    EphemeralMessageResponse(interaction, "An error occurred while claiming the invoice, please try again.");
   }
 };
 

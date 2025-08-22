@@ -19,18 +19,18 @@ interface InvoiceResult {
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("enviar")
-    .setDescription("Retira satoshis a una cuenta externa a discord")
+    .setName("send")
+    .setDescription("Withdraw satoshis to an external account outside discord")
     .addStringOption((opt) =>
       opt
         .setName("address")
-        .setDescription("Dirección de lightning network")
+        .setDescription("Lightning network address")
         .setRequired(true)
     )
     .addNumberOption((opt) =>
       opt
-        .setName("monto")
-        .setDescription("El monto en satoshis que deseas enviar")
+        .setName("amount")
+        .setDescription("The amount in satoshis you want to send")
         .setRequired(true)
     );
 
@@ -45,24 +45,24 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     await interaction.deferReply({ ephemeral: true });
 
     const addressOption = interaction.options.get('address');
-    const montoOption = interaction.options.get('monto');
+    const amountOption = interaction.options.get('amount');
     
     if (!addressOption || typeof addressOption.value !== 'string') {
       throw new Error("Address is required and must be a string");
     }
     
-    if (!montoOption || typeof montoOption.value !== 'number') {
-      throw new Error("Monto is required and must be a number");
+    if (!amountOption || typeof amountOption.value !== 'number') {
+      throw new Error("Amount is required and must be a number");
     }
 
     const address: string = addressOption.value;
-    const amount: number = montoOption.value;
+    const amount: number = amountOption.value;
 
-    log(`@${user.username} ejecutó /retirar ${address} ${amount}`, "info");
+    log(`@${user.username} executed /send ${address} ${amount}`, "info");
 
     const wallet = await getAndValidateAccount(interaction, user.id);
     if (!wallet.success) {
-      return EphemeralMessageResponse(interaction, wallet.message || "Error al obtener la cuenta");
+      return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }
 
     const balanceInSats: number = wallet.balance || 0;
@@ -80,7 +80,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     if (invoice && invoice.invoice) {
       log(
-        `@${interaction.user.username} está pagando la factura ${invoice.invoice}`,
+        `@${interaction.user.username} is paying the invoice ${invoice.invoice}`,
         "info"
       );
 
@@ -89,27 +89,27 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       });
       
       if (!response) {
-        throw new Error("Error al pagar la factura");
+        throw new Error("Error paying the invoice");
       }
 
       log(
-        `@${interaction.user.username} pagó la factura ${invoice.invoice}`,
+        `@${interaction.user.username} paid the invoice ${invoice.invoice}`,
         "info"
       );
 
       await interaction.editReply({
-        content: `Enviaste ${amount} satoshis a ${address} desde tu billetera`,
+        content: `You sent ${amount} satoshis to ${address} from your wallet`,
       });
     }
   } catch (err: any) {
     log(
-      `Error en el comando /retirar ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /send command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
     EphemeralMessageResponse(
       interaction,
-      "Ocurrió un error. Los parámetros de este comando son <ln url o address> y <monto>. Si deseas pagar una factura utiliza el comando /pagar"
+      "An error occurred. The parameters for this command are <ln url or address> and <amount>. If you want to pay an invoice use the /pay command"
     );
   }
 };

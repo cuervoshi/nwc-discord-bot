@@ -1,9 +1,9 @@
 import {
-  ActionRowBuilder,
-  EmbedBuilder,
   SlashCommandBuilder,
-  ButtonBuilder,
+  EmbedBuilder,
   ChatInputCommandInteraction,
+  ActionRowBuilder,
+  ButtonBuilder,
 } from "discord.js";
 import { getAndValidateAccount } from "../handlers/accounts.js";
 import {
@@ -20,8 +20,8 @@ interface AccountResult {
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("regalar")
-    .setDescription("Crea un faucet para regalar satoshis a la comunidad");
+    .setName("gift")
+    .setDescription("Create a faucet to gift satoshis to the community");
 
   return command.toJSON();
 };
@@ -33,11 +33,11 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     await interaction.deferReply({ ephemeral: true });
 
-    log(`@${user.username} ejecutó /regalar`, "info");
+    log(`@${user.username} executed /gift`, "info");
 
     const accountResult: AccountResult = await getAndValidateAccount(interaction, user.id);
     if (!accountResult.success) {
-      await EphemeralMessageResponse(interaction, accountResult.message || "Error desconocido");
+      await EphemeralMessageResponse(interaction, accountResult.message || "Unknown error");
       return;
     }
 
@@ -46,19 +46,19 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     if (balance < FAUCET_CONFIG.MINIMUM_BALANCE) {
       const embed = new EmbedBuilder()
         .setAuthor({
-          name: "Saldo insuficiente",
+          name: "Insufficient balance",
           iconURL: `https://cdn.discordapp.com/avatars/${interaction.user.id}/${interaction.user.avatar}`,
         })
         .setDescription(
-          `❌ **No tienes saldo suficiente para crear un faucet.**\n\n` +
-          `💰 **Tu saldo actual:** ${balance} satoshis\n` +
-          `🎁 **Mínimo para regalar:** 1 satoshi\n` +
-          `📊 **Total mínimo necesario:** ${FAUCET_CONFIG.MINIMUM_BALANCE} satoshis\n\n` +
-          `**Necesitas al menos ${FAUCET_CONFIG.MINIMUM_BALANCE - balance} satoshis más para crear un faucet.**\n\n` +
-          ` **Sugerencias:**\n` +
-          `• Usa \`/recargar\` para agregar saldo a tu billetera\n` +
-          `• Usa \`/solicitar\` para que otros te paguen\n` +
-          `• Espera a tener más saldo antes de crear un faucet`
+          `❌ **You don't have enough balance to create a faucet.**\n\n` +
+          `💰 **Your current balance:** ${balance} satoshis\n` +
+          `🎁 **Minimum to gift:** 1 satoshi\n` +
+          `📊 **Total minimum needed:** ${FAUCET_CONFIG.MINIMUM_BALANCE} satoshis\n\n` +
+          `**You need at least ${FAUCET_CONFIG.MINIMUM_BALANCE - balance} more satoshis to create a faucet.**\n\n` +
+          ` **Suggestions:**\n` +
+          `• Use \`/recharge\` to add balance to your wallet\n` +
+          `• Use \`/request\` to have others pay you\n` +
+          `• Wait to have more balance before creating a faucet`
         );
 
       await interaction.editReply({
@@ -69,18 +69,18 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: "Crear faucet de regalo",
+        name: "Create gift faucet",
         iconURL: `https://cdn.discordapp.com/avatars/${interaction.user.id}/${interaction.user.avatar}`,
       })
       .setDescription(
-        `**Con este comando puedes crear un faucet para regalar satoshis a la comunidad. Debes elegir el monto total y la cantidad de personas que pueden reclamar.**\n\n` +
-        `**Información importante:**\n` +
-        `• El monto que elijas se dividirá entre la cantidad de personas\n` +
-        `• **Fórmula:** \`Monto total / cantidad de personas = sats por persona\`\n` +
+        `**With this command you can create a faucet to gift satoshis to the community. You must choose the total amount and the number of people who can claim.**\n\n` +
+        `**Important information:**\n` +
+        `• The amount you choose will be divided among the number of people\n` +
+        `• **Formula:** \`Total amount / number of people = sats per person\`\n` +
         
-        `**Ejemplo:** Si seleccionas 100 sats para 10 personas, cada persona que reclame recibirá 10 sats.\n\n` +
+        `**Example:** If you select 100 sats for 10 people, each person who claims will receive 10 sats.\n\n` +
         
-        `**Tu saldo actual:** ${balance} satoshis\n\n`);
+        `**Your current balance:** ${balance} satoshis\n\n`);
       
     await interaction.editReply({
       embeds: [embed],
@@ -88,7 +88,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder()
             .setCustomId('create_faucet_modal')
-            .setLabel('Crear Faucet')
+            .setLabel('Create Faucet')
             .setStyle(1)
             .setEmoji('🎁')
         )
@@ -97,11 +97,11 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
   } catch (err: any) {
     log(
-      `Error en el comando /regalar ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /gift command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
-    await EphemeralMessageResponse(interaction, "❌ Ocurrió un error inesperado");
+    await EphemeralMessageResponse(interaction, "❌ An unexpected error occurred");
   }
 };
 

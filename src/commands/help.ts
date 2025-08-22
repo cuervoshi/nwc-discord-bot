@@ -22,8 +22,8 @@ interface CommandOutput {
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("ayuda")
-    .setDescription("Obtener ayuda sobre los comandos.");
+    .setName("help")
+    .setDescription("Get help about commands.");
 
   return command.toJSON();
 };
@@ -35,7 +35,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     const cmdOutput: CommandOutput[] = [];
     
     commandsArray.forEach((cmd: CommandData) => {
-      if (cmd.name !== "ayuda") {
+      if (cmd.name !== "help") {
         let params = "";
         cmd.options.forEach((opt: CommandOption) => {
           params += `${opt.name}: <${opt.type}> `;
@@ -52,7 +52,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     });
 
     if (!cmdOutput.length) {
-      return EphemeralMessageResponse(interaction, "No hay comandos");
+      return EphemeralMessageResponse(interaction, "No commands available");
     }
 
     const embed = new EmbedBuilder()
@@ -60,7 +60,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       .setAuthor(AuthorConfig)
       .setDescription(
         dedent(`
-    Este bot le permite interactuar con otros usuarios utilizando el poder de la red lightning. Ya tienes una billetera asociada a tu usuario, puedes utilizarla con los comandos que se definen a continuación:
+    This bot allows you to interact with other users using the power of the lightning network. You already have a wallet associated with your user, you can use it with the commands defined below:
     `)
       )
       .addFields(
@@ -71,7 +71,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     await interaction.editReply({ embeds: [embed] });
   } catch (err) {
     console.log(err);
-    EphemeralMessageResponse(interaction, "Ocurrió un error");
+    EphemeralMessageResponse(interaction, "An error occurred");
   }
 };
 

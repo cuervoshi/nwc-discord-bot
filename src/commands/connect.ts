@@ -1,11 +1,10 @@
-import {
-  EmbedBuilder,
-  SlashCommandBuilder,
-  ChatInputCommandInteraction,
-} from "discord.js";
-import { log } from "../handlers/log.js";
-import { validateNWCURI, testNWCConnection } from "../utils/helperFunctions.js";
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from "discord.js";
 import { createOrUpdateAccount } from "../handlers/accounts.js";
+import {
+  validateNWCURI,
+  testNWCConnection,
+} from "../utils/helperFunctions.js";
+import { log } from "../handlers/log.js";
 
 interface ValidationResult {
   valid: boolean;
@@ -20,12 +19,12 @@ interface ConnectionTestResult {
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("conectar")
-    .setDescription("Conecta tu billetera a través de Nostr Wallet Connect.")
+    .setName("connect")
+    .setDescription("Connect your wallet through Nostr Wallet Connect.")
     .addStringOption((opt) =>
       opt
         .setName("nwc_uri")
-        .setDescription("String de conexión NWC")
+        .setDescription("NWC connection string")
         .setRequired(true)
     );
 
@@ -46,44 +45,44 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     
     const NWC_URI: string = nwcUriOption.value;
     
-    log(`@${user.username} intentó conectar con NWC`, "info");
+    log(`@${user.username} attempted to connect with NWC`, "info");
 
     const formatValidation: ValidationResult = validateNWCURI(NWC_URI);
     if (!formatValidation.valid) {
-      log(`@${user.username} proporcionó un NWC URI inválido: ${formatValidation.error}`, "err");
+      log(`@${user.username} provided an invalid NWC URI: ${formatValidation.error}`, "err");
       return await interaction.editReply({
-        content: `❌ **Error de validación:** ${formatValidation.error}\n\n**Formato esperado:**\n\`nostr+walletconnect://<pubkey>?relay=<relay_url>&secret=<secret>\``,
+        content: `❌ **Validation error:** ${formatValidation.error}\n\n**Expected format:**\n\`nostr+walletconnect://<pubkey>?relay=<relay_url>&secret=<secret>\``,
       });
     }
 
-    log(`@${user.username} - NWC URI válido, probando conexión...`, "info");
+    log(`@${user.username} - Valid NWC URI, testing connection...`, "info");
 
     const connectionTest: ConnectionTestResult = await testNWCConnection(NWC_URI);
     if (!connectionTest.valid) {
-      log(`@${user.username} - Error de conexión NWC: ${connectionTest.error}`, "err");
+      log(`@${user.username} - NWC connection error: ${connectionTest.error}`, "err");
       return await interaction.editReply({
-        content: `❌ **Error de conexión:** ${connectionTest.error}\n\nVerifica que:\n• El URI sea correcto\n• La billetera esté conectada\n• Los permisos sean válidos\n• El relay esté disponible`,
+        content: `❌ **Connection error:** ${connectionTest.error}\n\nVerify that:\n• The URI is correct\n• The wallet is connected\n• The permissions are valid\n• The relay is available`,
       });
     }
 
     const account = await createOrUpdateAccount(user.id, user.username, NWC_URI);
     if (!account) {
-      log(`@${user.username} - Error al crear o actualizar la cuenta`, "err");
+      log(`@${user.username} - Error creating or updating account`, "err");
 
       return await interaction.editReply({
-        content: "❌ Ocurrió un error inesperado al procesar la conexión",
+        content: "❌ An unexpected error occurred while processing the connection",
       });
     }
 
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: "Conexión NWC exitosa",
+        name: "NWC connection successful",
         iconURL: `https://cdn.discordapp.com/avatars/${interaction.user.id}/${interaction.user.avatar}`,
       })
       .addFields([
         {
-          name: "Estado",
-          value: "Conexión establecida correctamente",
+          name: "Status",
+          value: "Connection established successfully",
         },
         {
           name: "Balance",
@@ -91,7 +90,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         },
       ]);
 
-    log(`@${user.username} conectó exitosamente con NWC - Balance: ${connectionTest.balance} sats`, "info");
+    log(`@${user.username} successfully connected with NWC - Balance: ${connectionTest.balance} sats`, "info");
 
     await interaction.editReply({
       embeds: [embed],
@@ -99,12 +98,12 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
   } catch (err: any) {
     log(
-      `Error en el comando /connect ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /connect command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
     await interaction.editReply({
-      content: "❌ Ocurrió un error inesperado al procesar la conexión",
+      content: "❌ An unexpected error occurred while processing the connection",
     });
   }
 };

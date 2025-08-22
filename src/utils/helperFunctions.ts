@@ -1,5 +1,3 @@
-import NDK, { NDKEvent, NDKRelaySet } from "@nostr-dev-kit/ndk";
-import { log } from "../handlers/log.js";
 import SimpleCache from "../handlers/SimpleCache.js";
 import { NWCClient } from "@getalby/sdk";
 import bolt11 from 'bolt11';
@@ -36,22 +34,22 @@ export const signupCache = new SimpleCache();
 export const validateNWCURI = (nwcUri: string): ValidationResult => {
   try {
     if (!nwcUri || typeof nwcUri !== 'string') {
-      return { valid: false, error: 'El URI de NWC no puede estar vacío' };
+      return { valid: false, error: 'The NWC URI cannot be empty' };
     }
 
     if (!nwcUri.startsWith('nostr+walletconnect://')) {
-      return { valid: false, error: 'El URI debe comenzar con "nostr+walletconnect://"' };
+      return { valid: false, error: 'The URI must start with "nostr+walletconnect://"' };
     }
 
     const uriParts = nwcUri.replace('nostr+walletconnect://', '').split('?');
     if (uriParts.length !== 2) {
-      return { valid: false, error: 'Formato de URI inválido' };
+      return { valid: false, error: 'Invalid URI format' };
     }
 
     const [pubkey, params] = uriParts;
     
     if (!/^[0-9a-fA-F]{64}$/.test(pubkey)) {
-      return { valid: false, error: 'Clave pública inválida' };
+      return { valid: false, error: 'Invalid public key' };
     }
 
     const searchParams = new URLSearchParams(params);
@@ -59,22 +57,22 @@ export const validateNWCURI = (nwcUri: string): ValidationResult => {
     const secret = searchParams.get('secret');
 
     if (!relay) {
-      return { valid: false, error: 'Falta el parámetro "relay"' };
+      return { valid: false, error: 'Missing "relay" parameter' };
     }
 
     if (!secret) {
-      return { valid: false, error: 'Falta el parámetro "secret"' };
+      return { valid: false, error: 'Missing "secret" parameter' };
     }
 
     try {
       new URL(relay);
     } catch {
-      return { valid: false, error: 'URL del relay inválida' };
+      return { valid: false, error: 'Invalid relay URL' };
     }
 
     return { valid: true };
   } catch (error: any) {
-    return { valid: false, error: 'Error al validar el URI' };
+    return { valid: false, error: 'Error validating the URI' };
   }
 };
 
@@ -91,7 +89,7 @@ export const testNWCConnection = async (nwcUri: string): Promise<ConnectionTestR
   } catch (error: any) {
     return { 
       valid: false, 
-      error: `Error de conexión: ${error.message}` 
+      error: `Connection error: ${error.message}` 
     };
   }
 };
@@ -108,13 +106,13 @@ const validateAmountAndBalance = (amount: number, balance: number): BalanceValid
   if (amount <= 0)
     return {
       status: false,
-      content: "No puedes usar números negativos o flotantes",
+      content: "You cannot use negative numbers or decimals",
     };
 
   if (amount > balance)
     return {
       status: false,
-      content: `No tienes saldo suficiente para realizar esta acción. \nRequerido: ${amount} - balance en tu billetera: ${balance}`,
+      content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${balance}`,
     };
 
   return {
@@ -175,13 +173,13 @@ const FollowUpEphemeralResponse = async (interaction: BaseInteraction, content: 
 export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationResult => {
   try {
     if (!bolt11String || typeof bolt11String !== 'string') {
-      return { valid: false, error: 'El BOLT11 no puede estar vacío' };
+      return { valid: false, error: 'The BOLT11 cannot be empty' };
     }
 
     const decoded = bolt11.decode(bolt11String);
     
     if (!decoded) {
-      return { valid: false, error: 'No se pudo decodificar el BOLT11' };
+      return { valid: false, error: 'Could not decode the BOLT11' };
     }
 
     if (!decoded.satoshis && (decoded as any).millisatoshis) {
@@ -189,14 +187,14 @@ export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationR
     }
 
     if (!decoded.satoshis) {
-      return { valid: false, error: 'El BOLT11 no tiene un monto válido' };
+      return { valid: false, error: 'The BOLT11 does not have a valid amount' };
     }
 
     return {
       valid: true,
       decoded,
       amount: decoded.satoshis,
-      description: (decoded as any).description || 'Sin descripción',
+      description: (decoded as any).description || 'No description',
       timestamp: (decoded as any).timestamp,
       expiry: (decoded as any).expiry
     };
@@ -204,7 +202,7 @@ export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationR
   } catch (error: any) {
     return { 
       valid: false, 
-      error: `Error al decodificar BOLT11: ${error.message}` 
+      error: `Error decoding BOLT11: ${error.message}` 
     };
   }
 };

@@ -71,23 +71,23 @@ const getServiceAccount = async (interaction: Interaction): Promise<ServiceAccou
     const cachedAccount = accountsCache.get(`account:service`) as ServiceAccountResult;
     if (cachedAccount) return cachedAccount;
 
-    log(`Obteniendo cuenta de servicio para faucets`, "info");
+    log(`Getting service account for faucets`, "info");
 
     const formatValidation = validateNWCURI(SERVICE_NWC_URI);
     if (!formatValidation.valid) {
-      log(`NWC URI de servicio inválido: ${formatValidation.error}`, "err");
+      log(`Invalid service NWC URI: ${formatValidation.error}`, "err");
       return {
         success: false,
-        message: `❌ **Error en configuración de servicio:** ${formatValidation.error}`
+        message: `❌ **Service configuration error:** ${formatValidation.error}`
       };
     }
 
     const connectionTest = await testNWCConnection(SERVICE_NWC_URI);
     if (!connectionTest.valid) {
-      log(`Error de conexión NWC de servicio: ${connectionTest.error}`, "err");
+      log(`Service NWC connection error: ${connectionTest.error}`, "err");
       return {
         success: false,
-        message: `❌ **Error de conexión de servicio:** ${connectionTest.error}`
+        message: `❌ **Service connection error:** ${connectionTest.error}`
       };
     }
 
@@ -95,7 +95,7 @@ const getServiceAccount = async (interaction: Interaction): Promise<ServiceAccou
       nostrWalletConnectUrl: SERVICE_NWC_URI
     });
 
-    log(`Cuenta de servicio validada exitosamente - Balance: ${connectionTest.balance} sats`, "info");
+    log(`Service account validated successfully - Balance: ${connectionTest.balance} sats`, "info");
 
     const createdAccount: ServiceAccountResult = {
       success: true,
@@ -112,10 +112,10 @@ const getServiceAccount = async (interaction: Interaction): Promise<ServiceAccou
     accountsCache.set(`account:service`, createdAccount, 7200000);
     return createdAccount;
   } catch (err: any) {
-    log(`Error obteniendo cuenta de servicio: ${err.message}`, "err");
+    log(`Error getting service account: ${err.message}`, "err");
     return {
       success: false,
-      message: "❌ **Error inesperado al obtener la cuenta de servicio.**"
+      message: "❌ **Unexpected error getting the service account.**"
     };
   }
 };
@@ -127,79 +127,79 @@ const getAndValidateAccount = async (interaction: Interaction, discord_id: strin
     const cachedAccount = accountsCache.get(`account:${discord_id}`) as AccountResult;
     if (cachedAccount && cachedAccount.success) {
       try {
-        log(`@${userData.user.username} - usando cuenta cacheada, actualizando balance`, "info");
+        log(`@${userData.user.username} - using cached account, updating balance`, "info");
         
         const currentBalance = await cachedAccount.nwcClient!.getBalance();
         const updatedBalance = Number(currentBalance.balance.toString()) / 1000;
         
         cachedAccount.balance = updatedBalance;
         
-        log(`@${userData.user.username} - balance actualizado: ${updatedBalance} sats`, "info");
+        log(`@${userData.user.username} - balance updated: ${updatedBalance} sats`, "info");
         
         return cachedAccount;
       } catch (balanceError: any) {
-        log(`@${userData.user.username} - error al actualizar balance cacheado: ${balanceError.message}`, "err");
+        log(`@${userData.user.username} - error updating cached balance: ${balanceError.message}`, "err");
       }
     }
     
     const userAccount = await (AccountModel as any).findOne({ discord_id });
     if (!userAccount) {
-      log(`@${userData.user.username} no tiene cuenta registrada`, "err");
+      log(`@${userData.user.username} doesn't have a registered account`, "err");
 
       if (interaction.user!.id === discord_id) {
         return {
           success: false,
-          message: "❌ **No tienes una cuenta registrada.**\n\nUsa el comando `/connect` para conectar tu billetera NWC."
+          message: "❌ **You don't have a registered account.**\n\nUse the `/connect` command to connect your NWC wallet."
         }
       } else {
         return {
           success: false,
-          message: "❌ **El usuario al que intentas enviar no tiene una cuenta registrada.**"
+          message: "❌ **The user you're trying to send to doesn't have a registered account.**"
         }
       }
     }
 
     const nwcUri = decryptData(userAccount.nwc_uri, SALT);
     if (!nwcUri) {
-      log(`@${userData.user.username} - Error al desencriptar NWC URI`, "err");
+      log(`@${userData.user.username} - Error decrypting NWC URI`, "err");
 
       if (interaction.user!.id === discord_id) {
         return {
           success: false,
-          message: "❌ **Error al recuperar tu conexión NWC.**\n\nUsa el comando `/connect` para reconectar tu billetera."
+          message: "❌ **Error recovering your NWC connection.**\n\nUse the `/connect` command to reconnect your wallet."
         }
       } else {
         return {
           success: false,
-          message: "❌ **Error al recuperar la conexión NWC del usuario.**"
+          message: "❌ **Error recovering the user's NWC connection.**"
         }
       }
     }
 
     const formatValidation = validateNWCURI(nwcUri);
     if (!formatValidation.valid) {
-      log(`@${userData.user.username} - NWC URI inválido: ${formatValidation.error}`, "err");
+      log(`@${userData.user.username} - Invalid NWC URI: ${formatValidation.error}`, "err");
 
       if (interaction.user!.id === discord_id) {
         return {
           success: false,
-          message: `❌ **URI de conexión inválido:** ${formatValidation.error}\n\nUsa el comando \`/connect\` para reconectar tu billetera.`
+          message: `❌ **Invalid connection URI:** ${formatValidation.error}\n\nUse the \`/connect\` command to reconnect your wallet.`
         }
       } else {
         return {
           success: false,
-          message: `❌ **El URI de conexión del usuario al que intentas enviar es inválido.**`
+          message: `❌ **The connection URI of the user you're trying to send to is invalid.**`
         }
       }
     }
 
     const connectionTest = await testNWCConnection(nwcUri);
     if (!connectionTest.valid) {
-      log(`@${userData.user.username} - Error de conexión NWC: ${connectionTest.error}`, "err");
+      log(`@${userData.user.username} - NWC connection error: ${connectionTest.error}`, "err");
 
       return {
         success: false,
-        message: `❌ **Error de conexión:** ${connectionTest.error}\n\nVerifica que tu billetera o la del usuario al que intentas enviar esté correctamente conectada. Usa \`/connect\` para reconectar si es necesario.`
+        message: `❌ **Connection error:** ${connectionTest.error}\n\nVerify that your wallet or the user's wallet you're trying to send to is properly connected. Use \`/connect\` to reconnect if necessary.`
       }
     }
 
@@ -207,7 +207,7 @@ const getAndValidateAccount = async (interaction: Interaction, discord_id: strin
       nostrWalletConnectUrl: nwcUri
     });
 
-    log(`@${userData.user.username} - Conexión NWC validada exitosamente`, "info");
+    log(`@${userData.user.username} - NWC connection validated successfully`, "info");
 
     const createdAccount: AccountResult = {
       success: true,
@@ -219,10 +219,10 @@ const getAndValidateAccount = async (interaction: Interaction, discord_id: strin
     accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
     return createdAccount;
   } catch (err: any) {
-    log(`Error inesperado al validar cuenta: ${err.message}`, "err");
+    log(`Unexpected error validating account: ${err.message}`, "err");
     return {
       success: false,
-      message: "❌ **Error inesperado al validar tu cuenta.**\n\nUsa el comando `/connect` para reconectar tu billetera."
+      message: "❌ **Unexpected error validating your account.**\n\nUse the `/connect` command to reconnect your wallet."
     }
   }
 };

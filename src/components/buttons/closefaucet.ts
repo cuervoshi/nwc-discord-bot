@@ -25,31 +25,31 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
       : false;
 
     if (!faucetId) {
-      return EphemeralMessageResponse(interaction, "No se encontró el faucet");
+      return EphemeralMessageResponse(interaction, "Faucet not found");
     }
 
-    log(`${user.username} presionó el botón cerrar faucet, en el faucet ${faucetId}`, "info");
+    log(`${user.username} pressed the close faucet button, on faucet ${faucetId}`, "info");
 
     const faucet: Faucet = await getFaucet(faucetId);
 
     if (!faucet) {
       return FollowUpEphemeralResponse(
         interaction,
-        "El faucet que intentas cerrar no se encuentra en la base de datos"
+        "The faucet you are trying to close is not found in the database"
       );
     }
 
     if (faucet.owner_id !== interaction.user.id) {
       return FollowUpEphemeralResponse(
         interaction,
-        "No puedes cerrar un faucet que no te pertenece"
+        "You cannot close a faucet that does not belong to you"
       );
     }
 
     if (faucet.closed) {
       return FollowUpEphemeralResponse(
         interaction,
-        "El faucet ya se encuentra cerrado."
+        "The faucet is already closed."
       );
     }
 
@@ -68,8 +68,8 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
     }
 
   } catch (err: any) {
-    log(`Error cuando @${interaction.user.username} intentó cerrar un faucet: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "Ocurrió un error");
+    log(`Error when @${interaction.user.username} tried to close a faucet: ${err.message}`, "err");
+    EphemeralMessageResponse(interaction, "An error occurred");
   }
 };
 

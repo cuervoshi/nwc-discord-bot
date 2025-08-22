@@ -30,12 +30,12 @@ interface RankResult {
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("donar")
-    .setDescription("Realiza donaciones al pozo de la crypta.")
+    .setName("donate")
+    .setDescription("Make donations to the crypta pool.")
     .addNumberOption((opt) =>
       opt
-        .setName("monto")
-        .setDescription("La cantidad de satoshis a donar")
+        .setName("amount")
+        .setDescription("The amount of satoshis to donate")
         .setRequired(true)
     );
 
@@ -49,18 +49,18 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     await interaction.deferReply();
 
-    const montoOption = interaction.options.get('monto');
-    if (!montoOption || typeof montoOption.value !== 'number') {
-      throw new Error("Monto is required and must be a number");
+    const amountOption = interaction.options.get('amount');
+    if (!amountOption || typeof amountOption.value !== 'number') {
+      throw new Error("Amount is required and must be a number");
     }
     
-    const amount: number = montoOption.value;
+    const amount: number = amountOption.value;
 
-    log(`@${user.username} ejecutó /donar ${amount}`, "info");
+    log(`@${user.username} executed /donate ${amount}`, "info");
 
     const wallet = await getAndValidateAccount(interaction, user.id);
     if (!wallet.success) {
-      return EphemeralMessageResponse(interaction, wallet.message || "Error al obtener la cuenta");
+      return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }
 
     const senderBalance: number = wallet.balance || 0;
@@ -85,7 +85,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       });
 
       if (!response) {
-        throw new Error("Error al pagar la factura");
+        throw new Error("Error paying invoice");
       }
 
       const updatedRank: RankResult = await updateUserRank(
@@ -102,14 +102,14 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         })
         .addFields(
           {
-            name: `Donación a ${process.env.POOL_ADDRESS}`,
-            value: `${interaction.user.toString()} ha donado ${formatter(
+            name: `Donation to ${process.env.POOL_ADDRESS}`,
+            value: `${interaction.user.toString()} has donated ${formatter(
               0,
               2
-            ).format(amount)} satoshis al pozo!`,
+            ).format(amount)} satoshis to the pool!`,
           },
           {
-            name: "Total donado",
+            name: "Total donated",
             value:
               updatedRank && updatedRank.amount
                 ? `${formatter(0, 0).format(updatedRank.amount)}`
@@ -117,17 +117,17 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
           }
         );
 
-      log(`@${user.username} donó ${amount} al pozo`, "info");
+      log(`@${user.username} donated ${amount} to the pool`, "info");
 
       return interaction.editReply({ embeds: [embed] });
     }
   } catch (err: any) {
     log(
-      `Error en el comando /donar ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /donate command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 
-    EphemeralMessageResponse(interaction, "Ocurrió un error");
+    EphemeralMessageResponse(interaction, "An error occurred");
   }
 };
 

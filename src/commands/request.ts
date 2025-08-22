@@ -1,15 +1,6 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  EmbedBuilder,
-  SlashCommandBuilder,
-  ChatInputCommandInteraction,
-} from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
 import { getAndValidateAccount } from "../handlers/accounts.js";
-import {
-  EphemeralMessageResponse,
-  FollowUpEphemeralResponse,
-} from "../utils/helperFunctions.js";
+import { EphemeralMessageResponse, FollowUpEphemeralResponse } from "../utils/helperFunctions.js";
 import { AuthorConfig } from "../utils/helperConfig.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
@@ -28,18 +19,18 @@ interface AccountResult {
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("solicitar")
-    .setDescription("Solicitar que te paguen una factura")
+    .setName("request")
+    .setDescription("Request payment for an invoice")
     .addNumberOption((opt) =>
       opt
-        .setName("monto")
-        .setDescription("La cantidad de satoshis a pagar en la factura")
+        .setName("amount")
+        .setDescription("The amount of satoshis to pay in the invoice")
         .setRequired(true)
     )
     .addStringOption((opt) =>
       opt
-        .setName("descripcion")
-        .setDescription("La descripción de la factura")
+        .setName("description")
+        .setDescription("The description of the invoice")
         .setRequired(false)
     );
 
@@ -54,30 +45,30 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     await interaction.deferReply();
 
-    const montoOption = interaction.options.get('monto');
-    const descripcionOption = interaction.options.get('descripcion');
+    const amountOption = interaction.options.get('amount');
+    const descriptionOption = interaction.options.get('description');
     
-    if (!montoOption || typeof montoOption.value !== 'number') {
-      throw new Error("Monto is required and must be a number");
+    if (!amountOption || typeof amountOption.value !== 'number') {
+      throw new Error("Amount is required and must be a number");
     }
 
-    const amount: number = parseInt(montoOption.value.toString());
-    const description: string = descripcionOption && typeof descripcionOption.value === 'string' 
-      ? descripcionOption.value 
+    const amount: number = parseInt(amountOption.value.toString());
+    const description: string = descriptionOption && typeof descriptionOption.value === 'string' 
+      ? descriptionOption.value 
       : "";
 
-    log(`@${user.username} ejecutó el comando /solicitar ${amount}`, "info");
+    log(`@${user.username} executed the /request command ${amount}`, "info");
 
     if (amount <= 0) {
       return FollowUpEphemeralResponse(
         interaction,
-        "No se permiten saldos negativos"
+        "Negative balances are not allowed"
       );
     }
 
     const wallet: AccountResult = await getAndValidateAccount(interaction, user.id);
     if (!wallet.success || !wallet.nwcClient) {
-      return EphemeralMessageResponse(interaction, wallet.message || "Error al obtener la cuenta");
+      return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }
 
     const invoiceDetails: InvoiceDetails = await wallet.nwcClient.makeInvoice({
@@ -87,11 +78,11 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const embed = new EmbedBuilder().setAuthor(AuthorConfig).addFields([
       {
-        name: "Solicitud de pago",
+        name: "Payment request",
         value: `${invoiceDetails.invoice}`,
       },
       {
-        name: "monto (sats)",
+        name: "amount (sats)",
         value: `${formatter(0, 0).format(amount)}`,
       },
     ]);
@@ -99,7 +90,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents([
       new ButtonBuilder()
         .setCustomId("pay")
-        .setLabel("Pagar factura")
+        .setLabel("Pay invoice")
         .setEmoji({ name: "💸" })
         .setStyle(2),
     ]);
@@ -110,10 +101,10 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     });
   } catch (err: any) {
     log(
-      `Error en el comando /solicitar ejecutado por @${interaction.user.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in /request command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
-    EphemeralMessageResponse(interaction, "Ocurrió un error");
+    EphemeralMessageResponse(interaction, "An error occurred");
   }
 };
 

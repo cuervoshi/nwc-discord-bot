@@ -51,7 +51,7 @@ const invoke = async (client: any, interaction: Interaction) => {
       }
     }
   } catch (error) {
-    console.error("Error al enviar comando");
+    console.error("Error sending command");
     console.error(error);
   }
 };
