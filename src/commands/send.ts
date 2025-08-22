@@ -7,15 +7,7 @@ import {
 import lnurl from "lnurl-pay";
 import { log } from "../handlers/log.js";
 import { Satoshis } from "lnurl-pay/dist/types/types.js";
-
-interface ValidationResult {
-  status: boolean;
-  content: string;
-}
-
-interface InvoiceResult {
-  invoice: string;
-}
+import { BalanceValidationResult, InvoiceResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -67,7 +59,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const balanceInSats: number = wallet.balance || 0;
 
-    const isValidAmount: ValidationResult = validateAmountAndBalance(amount, balanceInSats);
+    const isValidAmount: BalanceValidationResult = validateAmountAndBalance(amount, balanceInSats);
 
     if (!isValidAmount.status) {
       return EphemeralMessageResponse(interaction, isValidAmount.content);

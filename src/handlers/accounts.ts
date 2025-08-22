@@ -6,33 +6,7 @@ import { validateNWCURI, testNWCConnection } from "../utils/helperFunctions.js";
 import SimpleCache from "./SimpleCache.js";
 import { Interaction } from "discord.js";
 import { Account } from "../types/account.js";
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  balance?: number;
-  nwcClient?: NWCClient;
-  userAccount?: Account;
-  isServiceAccount?: boolean;
-  accountInfo?: {
-    type: string;
-    purpose: string;
-    balance: number;
-  };
-}
-
-interface ServiceAccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: NWCClient;
-  balance?: number;
-  isServiceAccount?: boolean;
-  accountInfo?: {
-    type: string;
-    purpose: string;
-    balance: number;
-  };
-}
+import { AccountResult, ServiceAccountResult } from "../types/index.js";
 
 const accountsCache = new SimpleCache();
 

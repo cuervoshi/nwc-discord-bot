@@ -11,12 +11,7 @@ import {
 } from "../utils/helperFunctions.js";
 import { FAUCET_CONFIG } from "../utils/faucetConfig.js";
 import { log } from "../handlers/log.js";
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  balance?: number;
-}
+import { AccountResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()

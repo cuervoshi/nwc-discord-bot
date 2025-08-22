@@ -7,17 +7,10 @@ import { getAndValidateAccount } from "../handlers/accounts.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
+import { AccountResult } from "../types/index.js";
 
 interface BalanceResponse {
   balance: number;
-}
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: {
-    getBalance: () => Promise<BalanceResponse>;
-  };
 }
 
 const create = () => {

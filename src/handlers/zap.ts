@@ -1,25 +1,14 @@
-import { getAndValidateAccount, getServiceAccount } from "../handlers/accounts.js";
+import { getAndValidateAccount } from "../handlers/accounts.js";
 import { log } from "../handlers/log.js";
 import { validateAmountAndBalance } from "../utils/helperFunctions.js";
 import { Interaction, User } from "discord.js";
-
-interface ZapResult {
-  success: boolean;
-  message: string;
-}
-
-interface BalanceValidationResult {
-  status: boolean;
-  content: string;
-}
+import { ZapResult, BalanceValidationResult } from "../types/index.js";
 
 const zap = async (
   interaction: Interaction,
   sender: User,
   receiver: User,
   amount: number,
-  onSuccess: () => void,
-  onError: () => void,
   zapMessage: string
 ): Promise<ZapResult> => {
   try {
@@ -32,9 +21,7 @@ const zap = async (
       interaction,
       receiver.id
     );
-
-    //const receiverWallet = await getServiceAccount(interaction);
-
+    
     if (!senderWallet.success) {
       return {
         success: false,

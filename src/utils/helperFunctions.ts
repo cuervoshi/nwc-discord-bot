@@ -1,33 +1,8 @@
 import SimpleCache from "../handlers/SimpleCache.js";
 import { NWCClient } from "@getalby/sdk";
-import bolt11 from 'bolt11';
-import { Interaction, TextChannel, BaseInteraction } from "discord.js";
-
-interface ValidationResult {
-  valid: boolean;
-  error?: string;
-}
-
-interface ConnectionTestResult {
-  valid: boolean;
-  balance?: number;
-  error?: string;
-}
-
-interface BalanceValidationResult {
-  status: boolean;
-  content: string;
-}
-
-interface BOLT11ValidationResult {
-  valid: boolean;
-  error?: string;
-  decoded?: any;
-  amount?: number;
-  description?: string;
-  timestamp?: number;
-  expiry?: number;
-}
+import bolt11, { PaymentRequestObject, TagsObject } from 'bolt11';
+import { TextChannel, BaseInteraction } from "discord.js";
+import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11ValidationResult } from "../types/index.js";
 
 export const signupCache = new SimpleCache();
 
@@ -176,14 +151,14 @@ export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationR
       return { valid: false, error: 'The BOLT11 cannot be empty' };
     }
 
-    const decoded = bolt11.decode(bolt11String);
+    const decoded: PaymentRequestObject & { tagsObject: TagsObject } = bolt11.decode(bolt11String);
     
     if (!decoded) {
       return { valid: false, error: 'Could not decode the BOLT11' };
     }
 
-    if (!decoded.satoshis && (decoded as any).millisatoshis) {
-      (decoded as any).satoshis = Math.floor((decoded as any).millisatoshis / 1000);
+    if (!decoded.satoshis && decoded.millisatoshis) {
+      decoded.satoshis = Math.floor(Number(decoded.millisatoshis) / 1000);
     }
 
     if (!decoded.satoshis) {
@@ -194,9 +169,9 @@ export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationR
       valid: true,
       decoded,
       amount: decoded.satoshis,
-      description: (decoded as any).description || 'No description',
-      timestamp: (decoded as any).timestamp,
-      expiry: (decoded as any).expiry
+      description: decoded.tagsObject?.description || 'No description',
+      timestamp: decoded.timestamp,
+      timeExpireDate: decoded.timeExpireDate
     };
 
   } catch (error: any) {
@@ -207,13 +182,13 @@ export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationR
   }
 };
 
-export const isBOLT11Expired = (decodedBOLT11: any): boolean => {
-  if (!decodedBOLT11.timestamp || !decodedBOLT11.expiry) {
+export const isBOLT11Expired = (decodedBOLT11: BOLT11ValidationResult['decoded']): boolean => {
+  if (!decodedBOLT11?.timestamp || !decodedBOLT11?.timeExpireDate) {
     return false;
   }
 
   const currentTime = Math.floor(Date.now() / 1000);
-  const expiryTime = decodedBOLT11.timestamp + decodedBOLT11.expiry;
+  const expiryTime = decodedBOLT11.timestamp + decodedBOLT11.timeExpireDate;
   
   return currentTime > expiryTime;
 };

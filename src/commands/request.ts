@@ -4,18 +4,7 @@ import { EphemeralMessageResponse, FollowUpEphemeralResponse } from "../utils/he
 import { AuthorConfig } from "../utils/helperConfig.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
-
-interface InvoiceDetails {
-  invoice: string;
-}
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: {
-    makeInvoice: (params: { amount: number; description: string }) => Promise<InvoiceDetails>;
-  };
-}
+import { BOLT11ValidationResult, BalanceValidationResult, AccountResult, InvoiceResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -71,7 +60,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }
 
-    const invoiceDetails: InvoiceDetails = await wallet.nwcClient.makeInvoice({
+    const invoiceDetails: InvoiceResult = await wallet.nwcClient.makeInvoice({
       amount: amount * 1000,
       description: description,
     });

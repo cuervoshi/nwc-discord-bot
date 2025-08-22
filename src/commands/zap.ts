@@ -3,12 +3,7 @@ import { updateUserRank } from "../handlers/donate.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
 import { zap } from "../handlers/zap.js";
-
-interface ZapResult {
-  success: boolean;
-  message: string;
-}
-
+import { ZapResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -44,11 +39,11 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     const receiverOption = interaction.options.get('user');
     const amountOption = interaction.options.get('amount');
     const messageOption = interaction.options.get('message');
-    
+
     if (!receiverOption || !receiverOption.user) {
       throw new Error("User option is required");
     }
-    
+
     if (!amountOption || typeof amountOption.value !== 'number') {
       throw new Error("Amount is required and must be a number");
     }
@@ -69,7 +64,17 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       ? messageOption.value
       : `${user.username} sent you ${amount} sats through discord`;
 
-    const onSuccess = async () => {
+    const result: ZapResult = await zap(
+      interaction,
+      user,
+      receiverData.user,
+      amount,
+      zapMessage
+    );
+
+    if (!result.success) {
+      return EphemeralMessageResponse(interaction, result.message);
+    } else {
       try {
         await updateUserRank(interaction.user.id, "comunidad", amount);
 
@@ -89,31 +94,6 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         console.log(err);
         EphemeralMessageResponse(interaction, "An error occurred");
       }
-    };
-
-    const onError = () => {
-      log(
-        `@${user.username} had an error making the zap payment to @${receiver.user.username}`,
-        "err"
-      );
-
-      EphemeralMessageResponse(interaction, "An error occurred");
-    };
-
-    const result: ZapResult = await zap(
-      interaction,
-      user,
-      receiverData.user,
-      amount,
-      onSuccess,
-      onError,
-      zapMessage
-    );
-
-    if (!result.success) {
-      return EphemeralMessageResponse(interaction, result.message);
-    } else {
-      await onSuccess();
     }
   } catch (err: any) {
     log(

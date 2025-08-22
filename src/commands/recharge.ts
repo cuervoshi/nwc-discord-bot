@@ -10,18 +10,7 @@ import {
 } from "../utils/helperFunctions.js";
 import QRCode from "qrcode";
 import { log } from "../handlers/log.js";
-
-interface InvoiceDetails {
-  invoice: string;
-}
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: {
-    makeInvoice: (params: { amount: number; description: string }) => Promise<InvoiceDetails>;
-  };
-}
+import { AccountResult, InvoiceResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -65,7 +54,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }
 
-    const invoiceDetails: InvoiceDetails = await wallet.nwcClient.makeInvoice({ 
+    const invoiceDetails: InvoiceResult = await wallet.nwcClient.makeInvoice({ 
       amount: amount * 1000, 
       description: `Recharge ${amount} sats to the discord wallet of user ${interaction.user.username}` 
     });

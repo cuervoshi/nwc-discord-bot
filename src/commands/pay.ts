@@ -7,28 +7,7 @@ import {
   isBOLT11Expired
 } from "../utils/helperFunctions.js";
 import { log } from "../handlers/log.js";
-
-interface BOLT11ValidationResult {
-  valid: boolean;
-  error?: string;
-  amount?: number;
-  description?: string;
-  decoded?: any;
-}
-
-interface ValidationResult {
-  status: boolean;
-  content: string;
-}
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: {
-    payInvoice: (params: { invoice: string }) => Promise<any>;
-  };
-  balance?: number;
-}
+import { BOLT11ValidationResult, BalanceValidationResult, AccountResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -87,7 +66,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const { nwcClient, balance } = accountResult;
 
-    const balanceValidation: ValidationResult = validateAmountAndBalance(amount || 0, balance);
+    const balanceValidation: BalanceValidationResult = validateAmountAndBalance(amount || 0, balance);
     if (!balanceValidation.status) {
       log(`@${user.username} - Insufficient balance: ${balanceValidation.content}`, "err");
       await EphemeralMessageResponse(interaction, balanceValidation.content);

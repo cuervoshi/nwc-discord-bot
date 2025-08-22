@@ -14,15 +14,7 @@ import lnurl from "lnurl-pay";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { Satoshis } from "lnurl-pay/dist/types/types.js";
-
-interface ValidationResult {
-  status: boolean;
-  content: string;
-}
-
-interface InvoiceResult {
-  invoice: string;
-}
+import { BalanceValidationResult, InvoiceResult } from "../types/index.js";
 
 interface RankResult {
   amount?: number;
@@ -65,7 +57,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const senderBalance: number = wallet.balance || 0;
 
-    const isValidAmount: ValidationResult = validateAmountAndBalance(
+    const isValidAmount: BalanceValidationResult = validateAmountAndBalance(
       amount,
       senderBalance
     );

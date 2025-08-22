@@ -5,17 +5,7 @@ import {
   testNWCConnection,
 } from "../utils/helperFunctions.js";
 import { log } from "../handlers/log.js";
-
-interface ValidationResult {
-  valid: boolean;
-  error?: string;
-}
-
-interface ConnectionTestResult {
-  valid: boolean;
-  error?: string;
-  balance?: number;
-}
+import { ValidationResult, ConnectionTestResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
