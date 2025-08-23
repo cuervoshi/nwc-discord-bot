@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from "discord.js";
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
   validateAndDecodeBOLT11,
@@ -54,7 +54,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return;
     }
 
-    const accountResult: AccountResult = await getAndValidateAccount(interaction, user.id);
+    const accountResult: AccountResult = await getAccount(interaction, user.id);
     if (!accountResult.success) {
       await EphemeralMessageResponse(interaction, accountResult.message || "Unknown error");
       return;

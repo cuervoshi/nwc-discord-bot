@@ -1,10 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import { EphemeralMessageResponse, FollowUpEphemeralResponse } from "../utils/helperFunctions.js";
 import { AuthorConfig } from "../utils/helperConfig.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
-import { BOLT11ValidationResult, BalanceValidationResult, AccountResult, InvoiceResult } from "../types/index.js";
+import { AccountResult, InvoiceResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -55,7 +55,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       );
     }
 
-    const wallet: AccountResult = await getAndValidateAccount(interaction, user.id);
+    const wallet: AccountResult = await getAccount(interaction, user.id);
     if (!wallet.success || !wallet.nwcClient) {
       return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }

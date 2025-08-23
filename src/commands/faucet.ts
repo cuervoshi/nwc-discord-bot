@@ -5,7 +5,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
 } from "discord.js";
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
 } from "../utils/helperFunctions.js";
@@ -30,7 +30,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     log(`@${user.username} executed /gift`, "info");
 
-    const accountResult: AccountResult = await getAndValidateAccount(interaction, user.id);
+    const accountResult: AccountResult = await getAccount(interaction, user.id);
     if (!accountResult.success) {
       await EphemeralMessageResponse(interaction, accountResult.message || "Unknown error");
       return;

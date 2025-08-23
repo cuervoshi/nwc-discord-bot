@@ -4,7 +4,7 @@ import {
   ChatInputCommandInteraction,
   AttachmentBuilder,
 } from "discord.js";
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
 } from "../utils/helperFunctions.js";
@@ -49,7 +49,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       );
     }
 
-    const wallet: AccountResult = await getAndValidateAccount(interaction, user.id);
+    const wallet: AccountResult = await getAccount(interaction, user.id);
     if (!wallet.success || !wallet.nwcClient) {
       return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }

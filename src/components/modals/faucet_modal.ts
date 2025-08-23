@@ -1,6 +1,6 @@
 import { log } from "../../handlers/log.js";
-import { validateAmountAndBalance } from "../../utils/helperFunctions.js";
-import { getAndValidateAccount, getServiceAccount } from "../../handlers/accounts.js";
+import { validateAmountAndBalance, formatErrorMessage, formatSuccessMessage } from "../../utils/helperFunctions.js";
+import { getAccount, getServiceAccount } from "../../handlers/accounts.js";
 import { FAUCET_CONFIG } from "../../utils/faucetConfig.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ModalSubmitInteraction } from "discord.js";
@@ -39,27 +39,21 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     log(`@${interaction.user.username} submitted modal: ${amount} sats for ${users} users`, "info");
 
     if (!amount || amount <= 0) {
-      await interaction.editReply({
-        content: "❌ **Error:** The amount must be a number greater than 0",
-      });
+      await interaction.editReply(formatErrorMessage("Invalid amount", "The amount must be a number greater than 0"));
       return;
     }
 
     if (!users || users <= 0) {
-      await interaction.editReply({
-        content: "❌ **Error:** The number of people must be a number greater than 0",
-      });
+      await interaction.editReply(formatErrorMessage("Invalid number of people", "The number of people must be a number greater than 0"));
       return;
     }
 
     if (users > FAUCET_CONFIG.MAX_USERS) {
-      await interaction.editReply({
-        content: `❌ **Error:** Maximum ${FAUCET_CONFIG.MAX_USERS} people can claim a faucet`,
-      });
+      await interaction.editReply(formatErrorMessage("Too many people", `Maximum ${FAUCET_CONFIG.MAX_USERS} people can claim a faucet`));
       return;
     }
 
-    const userAccount: AccountResult = await getAndValidateAccount(interaction, interaction.user.id);
+    const userAccount: AccountResult = await getAccount(interaction, interaction.user.id);
     if (!userAccount.success) {
       await interaction.editReply({
         content: userAccount.message,
@@ -68,18 +62,19 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     }
 
     const { balance: userBalance } = userAccount;
-    
+
     const satsPerUser = Math.floor(amount / users);
-    const totalCost = satsPerUser * users; 
+    const totalCost = satsPerUser * users;
 
     const balanceValidation: BalanceValidationResult = validateAmountAndBalance(totalCost, userBalance || 0);
+    const routingFee = Math.ceil(userBalance * 0.005);
     if (!balanceValidation.status) {
-      await interaction.editReply({
-        content: `❌ **Insufficient balance:** ${balanceValidation.content}\n\n` +
-          `💰 **Your balance:** ${userBalance} satoshis\n` +
-          `💸 **Total needed:** ${totalCost} satoshis\n\n` +
-          `ℹ️ **Note:** From ${amount} requested sats, ${totalCost} sats will be distributed (${amount - totalCost} sats are lost due to division)`,
-      });
+      const availableBalance = userBalance - routingFee;
+      const errorContent = `${balanceValidation.content}\n\n` +
+        `💰 **Your available balance:** ${availableBalance.toLocaleString()} satoshis (0.5% routing fee is reserved - ${routingFee} sats)\n` +
+        `💸 **Total needed:** ${totalCost.toLocaleString()} satoshis`;
+
+      await interaction.editReply(formatErrorMessage("Insufficient balance", errorContent));
       return;
     }
 
@@ -92,14 +87,14 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     }
 
     if (satsPerUser < FAUCET_CONFIG.MIN_SATS_PER_USER) {
-      await interaction.editReply({
-        content: `❌ **Error:** With ${amount} satoshis for ${users} people, each would receive less than ${FAUCET_CONFIG.MIN_SATS_PER_USER} satoshi.\n\n` +
-          `**Each person would receive:** ${satsPerUser} satoshis\n\n` +
-          ` **Suggestions:**\n` +
-          `• Increase the total amount\n` +
-          `• Reduce the number of people\n` +
-          `• Make sure the amount is greater than or equal to the number of people`,
-      });
+      const errorContent = `With ${amount.toLocaleString()} satoshis for ${users} people, each would receive less than ${FAUCET_CONFIG.MIN_SATS_PER_USER} satoshi.\n\n` +
+        `**Each person would receive:** ${satsPerUser} satoshis\n\n` +
+        `**Suggestions:**\n` +
+        `• Increase the total amount\n` +
+        `• Reduce the number of people\n` +
+        `• Make sure the amount is greater than or equal to the number of people`;
+
+      await interaction.editReply(formatErrorMessage("Amount too low per person", errorContent));
       return;
     }
 
@@ -107,26 +102,21 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
 
   } catch (err: any) {
     log(`Error processing modal for @${interaction.user.username}: ${err.message}`, "err");
-    
+
     try {
-      await interaction.editReply({
-        content: "❌ An error occurred while processing your request",
-      });
+      await interaction.editReply(formatErrorMessage("Processing error", "An error occurred while processing your request"));
     } catch (replyError) {
-      await interaction.followUp({
-        content: "❌ An error occurred while processing your request",
-        ephemeral: true
-      });
+      await interaction.followUp(formatErrorMessage("Processing error", "An error occurred while processing your request"));
     }
   }
 };
 
 const createFaucetWithMessage = async (
-  interaction: ModalSubmitInteraction, 
-  users: number, 
-  satsPerUser: number, 
-  totalCost: number, 
-  userAccount: AccountResult, 
+  interaction: ModalSubmitInteraction,
+  users: number,
+  satsPerUser: number,
+  totalCost: number,
+  userAccount: AccountResult,
   serviceAccount: ServiceAccountResult
 ): Promise<void> => {
   try {
@@ -161,9 +151,7 @@ const createFaucetWithMessage = async (
     );
 
     if (!newFaucet || !newFaucet._id) {
-      await interaction.editReply({
-        content: "❌ An error occurred while creating the faucet in the database",
-      });
+      await interaction.editReply(formatErrorMessage("Database error", "An error occurred while creating the faucet in the database"));
       return;
     }
 
@@ -177,11 +165,10 @@ const createFaucetWithMessage = async (
       .addFields([
         {
           name: `Available faucet:`,
-          value: `${interaction.user.toString()} is gifting ${satsPerUser} sats to ${
-            users === 1
+          value: `${interaction.user.toString()} is gifting ${satsPerUser} sats to ${users === 1
               ? "1 person"
               : `${users} people \nPress claim to get your reward. \n\n`
-          }`,
+            }`,
         },
         {
           name: `Remaining: ${totalCost}/${totalCost} sats`,
@@ -216,14 +203,13 @@ const createFaucetWithMessage = async (
       publicMessage.id
     );
 
-    await interaction.editReply({
-      content: `🎉 **Faucet created successfully!**\n\n` +
-        `💰 **Total amount:** ${totalCost} satoshis\n` +
-        `👥 **People:** ${users}\n` +
-        `🎁 **Each receives:** ${satsPerUser} satoshis\n` +
-        `✅ **Funds transferred to service account**\n` +
-        `The faucet is available for other users to claim.`,
-    });
+    const successContent = `**Total amount:** ${totalCost.toLocaleString()} satoshis\n\n` +
+      `**People to receive:** ${users}\n` +
+      `**Each receives:** ${satsPerUser.toLocaleString()} satoshis\n\n` +
+      `**Funds transferred to service account**\n` +
+      `The faucet is available for other users to claim.`;
+
+    await interaction.editReply(formatSuccessMessage("Faucet created successfully!", successContent));
 
     log(
       `@${interaction.user.username} successfully created faucet: ${faucetId}`,
@@ -232,11 +218,9 @@ const createFaucetWithMessage = async (
 
   } catch (err: any) {
     log(`Error creating faucet for @${interaction.user.username}: ${err.message}`, "err");
-    
-    await interaction.editReply({
-      content: `❌ **Error creating faucet:** ${err.message}\n\n` +
-        `Make sure your wallet is connected and has sufficient balance.`,
-    });
+
+    const errorContent = `${err.message}\n\nMake sure your wallet is connected and has sufficient balance.`;
+    await interaction.editReply(formatErrorMessage("Error creating faucet", errorContent));
   }
 };
 

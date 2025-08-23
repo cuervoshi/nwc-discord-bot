@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction } from "discord.js";
-import { getAndValidateAccount } from "../../handlers/accounts.js";
+import { getAccount } from "../../handlers/accounts.js";
 import { log } from "../../handlers/log.js";
 import { FollowUpEphemeralResponse } from "../../utils/helperFunctions.js";
 
@@ -27,7 +27,7 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
     );
 
     if (payUrl && amountOnSats) {
-      const userWallet: AccountResult = await getAndValidateAccount(interaction, interaction.user.id);
+      const userWallet: AccountResult = await getAccount(interaction, interaction.user.id);
       const satsBalance: number = userWallet.balance || 0;
 
       if (!userWallet.success || !userWallet.nwcClient) {

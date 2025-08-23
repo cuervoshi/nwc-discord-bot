@@ -3,7 +3,7 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
 } from "discord.js";
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
@@ -30,7 +30,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     log(`@${user.username} used /balance`, "info");
 
-    const accountResult: AccountResult = await getAndValidateAccount(interaction, user.id);
+    const accountResult: AccountResult = await getAccount(interaction, user.id);
     if (!accountResult.success) {
       return EphemeralMessageResponse(interaction, accountResult.message || "Unknown error");
     }

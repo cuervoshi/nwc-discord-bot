@@ -3,7 +3,7 @@ import {
   SlashCommandBuilder, 
   ChatInputCommandInteraction 
 } from "discord.js";
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
   FollowUpEphemeralResponse,
@@ -50,7 +50,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     log(`@${user.username} executed /donate ${amount}`, "info");
 
-    const wallet = await getAndValidateAccount(interaction, user.id);
+    const wallet = await getAccount(interaction, user.id);
     if (!wallet.success) {
       return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }

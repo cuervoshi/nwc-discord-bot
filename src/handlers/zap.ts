@@ -1,4 +1,4 @@
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import { log } from "../handlers/log.js";
 import { validateAmountAndBalance } from "../utils/helperFunctions.js";
 import { Interaction, User } from "discord.js";
@@ -15,9 +15,9 @@ const zap = async (
     if (amount <= 0)
       return { success: false, message: "Negative balances are not allowed" };
 
-    const senderWallet = await getAndValidateAccount(interaction, sender.id);
+    const senderWallet = await getAccount(interaction, sender.id);
 
-    const receiverWallet = await getAndValidateAccount(
+    const receiverWallet = await getAccount(
       interaction,
       receiver.id
     );

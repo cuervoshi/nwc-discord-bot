@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
-import { getAndValidateAccount } from "../handlers/accounts.js";
+import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
   validateAmountAndBalance,
@@ -52,7 +52,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     log(`@${user.username} executed /send ${address} ${amount}`, "info");
 
-    const wallet = await getAndValidateAccount(interaction, user.id);
+    const wallet = await getAccount(interaction, user.id);
     if (!wallet.success) {
       return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }

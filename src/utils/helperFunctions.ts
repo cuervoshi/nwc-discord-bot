@@ -90,6 +90,15 @@ const validateAmountAndBalance = (amount: number, balance: number): BalanceValid
       content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${balance}`,
     };
 
+  const routingFee = Math.ceil(balance * 0.005);
+  const maxSendableAmount = Math.floor(balance - routingFee);
+  
+  if (amount > maxSendableAmount)
+    return {
+      status: false,
+      content: `You cannot send more than ${maxSendableAmount} sats to reserve 0.5% (${routingFee} sats) for potential routing fees.`,
+    };
+
   return {
     status: true,
     content: "",
@@ -193,10 +202,45 @@ export const isBOLT11Expired = (decodedBOLT11: BOLT11ValidationResult['decoded']
   return currentTime > expiryTime;
 };
 
+// Función para formatear mensajes de balance con el estilo del bot
+const formatBalanceMessage = (balance: number, additionalInfo?: string): any => {
+  const formattedBalance = balance.toLocaleString();
+  
+  const embed = {
+    color: 0x2f3136, // Color gris oscuro como en la imagen
+    description: `🔧 **Your Account Information**\n\n**Balance**\n**${formattedBalance} satoshis**${additionalInfo ? `\n\n${additionalInfo}` : ''}`,
+  };
+  
+  return { embeds: [embed] };
+};
+
+// Función para formatear mensajes de error con el estilo del bot
+const formatErrorMessage = (title: string, content: string): any => {
+  const embed = {
+    color: 0xed4245, // Color rojo para errores
+    description: `❌ **${title}**\n\n${content}`,
+  };
+  
+  return { embeds: [embed] };
+};
+
+// Función para formatear mensajes de éxito con el estilo del bot
+const formatSuccessMessage = (title: string, content: string): any => {
+  const embed = {
+    color: 0x57f287, // Color verde para éxito
+    description: `✅ **${title}**\n\n${content}`,
+  };
+  
+  return { embeds: [embed] };
+};
+
 export {
   EphemeralMessageResponse,
   TimedMessage,
   FollowUpEphemeralResponse,
   handleBotResponse,
   validateAmountAndBalance,
+  formatBalanceMessage,
+  formatErrorMessage,
+  formatSuccessMessage,
 };

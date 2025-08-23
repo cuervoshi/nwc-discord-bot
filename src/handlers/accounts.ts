@@ -94,7 +94,48 @@ const getServiceAccount = async (interaction: Interaction): Promise<ServiceAccou
   }
 };
 
-const getAndValidateAccount = async (interaction: Interaction, discord_id: string): Promise<AccountResult> => {
+// Nueva función aislada para validar una conexión NWC
+const validateAccount = async (nwcUri: string, username?: string): Promise<AccountResult> => {
+  try {
+    const formatValidation = validateNWCURI(nwcUri);
+    if (!formatValidation.valid) {
+      log(`${username ? `@${username} - ` : ''}Invalid NWC URI: ${formatValidation.error}`, "err");
+      return {
+        success: false,
+        message: `❌ **Invalid connection URI:** ${formatValidation.error}`
+      };
+    }
+
+    const connectionTest = await testNWCConnection(nwcUri);
+    if (!connectionTest.valid) {
+      log(`${username ? `@${username} - ` : ''}NWC connection error: ${connectionTest.error}`, "err");
+      return {
+        success: false,
+        message: `❌ **Connection error:** ${connectionTest.error}`
+      };
+    }
+
+    const nwcClient = new NWCClient({
+      nostrWalletConnectUrl: nwcUri
+    });
+
+    log(`${username ? `@${username} - ` : ''}NWC connection validated successfully`, "info");
+
+    return {
+      success: true,
+      nwcClient,
+      balance: connectionTest.balance
+    };
+  } catch (err: any) {
+    log(`${username ? `@${username} - ` : ''}Unexpected error validating account: ${err.message}`, "err");
+    return {
+      success: false,
+      message: "❌ **Unexpected error validating the connection.**"
+    };
+  }
+};
+
+const getAccount = async (interaction: Interaction, discord_id: string): Promise<AccountResult> => {
   try {
     const userData = await interaction.guild!.members.fetch(discord_id);
 
@@ -150,55 +191,37 @@ const getAndValidateAccount = async (interaction: Interaction, discord_id: strin
       }
     }
 
-    const formatValidation = validateNWCURI(nwcUri);
-    if (!formatValidation.valid) {
-      log(`@${userData.user.username} - Invalid NWC URI: ${formatValidation.error}`, "err");
-
+    const validationResult = await validateAccount(nwcUri, userData.user.username);
+    if (!validationResult.success) {
       if (interaction.user!.id === discord_id) {
         return {
           success: false,
-          message: `❌ **Invalid connection URI:** ${formatValidation.error}\n\nUse the \`/connect\` command to reconnect your wallet.`
+          message: `${validationResult.message}\n\nUse the \`/connect\` command to reconnect your wallet.`
         }
       } else {
         return {
           success: false,
-          message: `❌ **The connection URI of the user you're trying to send to is invalid.**`
+          message: `❌ **The connection of the user you're trying to send to has an error.**`
         }
       }
     }
 
-    const connectionTest = await testNWCConnection(nwcUri);
-    if (!connectionTest.valid) {
-      log(`@${userData.user.username} - NWC connection error: ${connectionTest.error}`, "err");
-
-      return {
-        success: false,
-        message: `❌ **Connection error:** ${connectionTest.error}\n\nVerify that your wallet or the user's wallet you're trying to send to is properly connected. Use \`/connect\` to reconnect if necessary.`
-      }
-    }
-
-    const nwcClient = new NWCClient({
-      nostrWalletConnectUrl: nwcUri
-    });
-
-    log(`@${userData.user.username} - NWC connection validated successfully`, "info");
-
     const createdAccount: AccountResult = {
       success: true,
-      nwcClient,
-      balance: connectionTest.balance,
+      nwcClient: validationResult.nwcClient,
+      balance: validationResult.balance,
       userAccount: userAccount as Account
     };
 
     accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
     return createdAccount;
   } catch (err: any) {
-    log(`Unexpected error validating account: ${err.message}`, "err");
+    log(`Unexpected error getting account: ${err.message}`, "err");
     return {
       success: false,
-      message: "❌ **Unexpected error validating your account.**\n\nUse the `/connect` command to reconnect your wallet."
+      message: "❌ **Unexpected error getting your account.**\n\nUse the `/connect` command to reconnect your wallet."
     }
   }
 };
 
-export { createOrUpdateAccount, getAndValidateAccount, getServiceAccount };
+export { createOrUpdateAccount, getServiceAccount, validateAccount, getAccount };
