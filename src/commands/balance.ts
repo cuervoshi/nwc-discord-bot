@@ -46,7 +46,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       throw new Error("Error getting balance");
     }
     
-    const balance: number = response.balance / 1000;
+    const balance: number = Math.floor(response.balance / 1000);
 
     const embed = new EmbedBuilder()
       .setAuthor({

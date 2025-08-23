@@ -119,7 +119,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       "err"
     );
 
-    EphemeralMessageResponse(interaction, "An error occurred");
+    EphemeralMessageResponse(interaction, "❌ **An error occurred.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**");
   }
 };
 

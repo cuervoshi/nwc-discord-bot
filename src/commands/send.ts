@@ -101,7 +101,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     EphemeralMessageResponse(
       interaction,
-      "An error occurred. The parameters for this command are <ln url or address> and <amount>. If you want to pay an invoice use the /pay command"
+      "❌ **An error occurred.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**\n\nThe parameters for this command are <ln url or address> and <amount>. If you want to pay an invoice use the `/pay` command."
     );
   }
 };

@@ -126,7 +126,7 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     );
   } catch (err: any) {
     log(`Error in handleClaim for @${interaction.user.username}: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "An error occurred while claiming the invoice, please try again.");
+    EphemeralMessageResponse(interaction, "❌ **An error occurred while claiming the invoice.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**\n\nPlease try again.");
   }
 };
 
@@ -330,7 +330,7 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
 
   } catch (err: any) {
     log(`Error when @${interaction.user.username} tried to claim a faucet: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "An error occurred while claiming the invoice, please try again.");
+    EphemeralMessageResponse(interaction, "❌ **An error occurred while claiming the invoice.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**\n\nPlease try again.");
   }
 };
 

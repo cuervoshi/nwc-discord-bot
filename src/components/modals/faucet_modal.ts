@@ -1,7 +1,7 @@
 import { log } from "../../handlers/log.js";
 import { validateAmountAndBalance, formatErrorMessage, formatSuccessMessage } from "../../utils/helperFunctions.js";
 import { getAccount, getServiceAccount } from "../../handlers/accounts.js";
-import { FAUCET_CONFIG } from "../../utils/faucetConfig.js";
+import { FAUCET_CONFIG, BOT_CONFIG } from "../../utils/config.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ModalSubmitInteraction } from "discord.js";
 
@@ -67,12 +67,15 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     const totalCost = satsPerUser * users;
 
     const balanceValidation: BalanceValidationResult = validateAmountAndBalance(totalCost, userBalance || 0);
-    const routingFee = Math.ceil(userBalance * 0.005);
+
+    const routingFee = Math.ceil(userBalance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
+    const totalReserve = Math.max(routingFee, BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
+
     if (!balanceValidation.status) {
-      const availableBalance = userBalance - routingFee;
+      const availableBalance = Math.max(0, userBalance - totalReserve);
       const errorContent = `${balanceValidation.content}\n\n` +
-        `💰 **Your available balance:** ${availableBalance.toLocaleString()} satoshis (0.5% routing fee is reserved - ${routingFee} sats)\n` +
-        `💸 **Total needed:** ${totalCost.toLocaleString()} satoshis`;
+        `**Your available balance:** ${availableBalance.toLocaleString()} satoshis (routing fee is reserved - ${totalReserve} sats)\n` +
+        `**Total needed:** ${totalCost.toLocaleString()} satoshis`;
 
       await interaction.editReply(formatErrorMessage("Insufficient balance", errorContent));
       return;
@@ -219,7 +222,7 @@ const createFaucetWithMessage = async (
   } catch (err: any) {
     log(`Error creating faucet for @${interaction.user.username}: ${err.message}`, "err");
 
-    const errorContent = `${err.message}\n\nMake sure your wallet is connected and has sufficient balance.`;
+    const errorContent = `${err.message}\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**\n\nMake sure your wallet is connected and has sufficient balance.`;
     await interaction.editReply(formatErrorMessage("Error creating faucet", errorContent));
   }
 };

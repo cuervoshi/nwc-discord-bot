@@ -67,7 +67,7 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
       `Error when @${interaction.user.username} tried to pay an invoice from /request - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
-    return FollowUpEphemeralResponse(interaction, "An error occurred");
+    return FollowUpEphemeralResponse(interaction, "❌ **An error occurred.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**");
   }
 };
 

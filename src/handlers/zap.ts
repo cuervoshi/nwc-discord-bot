@@ -74,7 +74,7 @@ const zap = async (
       "err"
     );
 
-    return { success: false, message: "An error occurred while processing the payment" };
+    return { success: false, message: "❌ **An error occurred while processing the payment.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**" };
   }
 };
 

@@ -2,19 +2,18 @@ import AccountModel from "../schemas/AccountSchema.js";
 import { encryptData, decryptData } from "../utils/crypto.js";
 import { NWCClient } from "@getalby/sdk";
 import { log } from "./log.js";
-import { validateNWCURI, testNWCConnection } from "../utils/helperFunctions.js";
+import { validateNWCURI, testNWCConnection, requiredEnvVar } from "../utils/helperFunctions.js";
 import SimpleCache from "./SimpleCache.js";
 import { Interaction } from "discord.js";
 import { Account } from "../types/account.js";
 import { AccountResult, ServiceAccountResult } from "../types/index.js";
 
 const accountsCache = new SimpleCache();
-
 const SALT: string = process.env.SALT ?? "";
 
 const SERVICE_NWC_URI: string = process.env.SERVICE_NWC_URI ?? "";
 
-const createOrUpdateAccount = async (discord_id: string, discord_username: string, nwc_uri: string): Promise<Account | null> => {
+const connectAccount = async (discord_id: string, discord_username: string, nwc_uri: string): Promise<Account | null> => {
   try {
     const userAccount = await (AccountModel as any).findOne({ discord_id });
     if (userAccount) {
@@ -37,6 +36,47 @@ const createOrUpdateAccount = async (discord_id: string, discord_username: strin
   } catch (err: any) {
     console.log(err);
     return null;
+  }
+};
+
+const connectUserAccount = async (discord_id: string, discord_username: string, nwc_uri: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const validationResult = await validateAccount(nwc_uri, discord_username);
+    if (!validationResult.success) {
+      return {
+        success: false,
+        message: validationResult.message
+      };
+    }
+
+    const userAccount = await (AccountModel as any).findOne({ discord_id });
+    if (userAccount) {
+      userAccount.nwc_uri = encryptData(nwc_uri, SALT);
+      userAccount.discord_username = discord_username;
+      await userAccount.save();
+      log(`Updated existing account for @${discord_username} with user NWC URI`, "info");
+    } else {
+      const newAccount = new AccountModel({
+        discord_id,
+        discord_username,
+        nwc_uri: encryptData(nwc_uri, SALT),
+        bot_nwc_uri: ""
+      });
+      await newAccount.save();
+      log(`Created new account for @${discord_username} with user NWC URI`, "info");
+    }
+
+    accountsCache.delete(`account:${discord_id}`);
+
+    return {
+      success: true
+    };
+  } catch (err: any) {
+    log(`Error connecting user account for @${discord_username}: ${err.message}`, "err");
+    return {
+      success: false,
+      message: "❌ **Error saving your account connection.**"
+    };
   }
 };
 
@@ -75,7 +115,7 @@ const getServiceAccount = async (interaction: Interaction): Promise<ServiceAccou
       success: true,
       nwcClient,
       balance: connectionTest.balance,
-      isServiceAccount: true, // Flag para identificar que es cuenta de servicio
+      isServiceAccount: true, 
       accountInfo: {
         type: 'service',
         purpose: 'faucet_management',
@@ -94,7 +134,6 @@ const getServiceAccount = async (interaction: Interaction): Promise<ServiceAccou
   }
 };
 
-// Nueva función aislada para validar una conexión NWC
 const validateAccount = async (nwcUri: string, username?: string): Promise<AccountResult> => {
   try {
     const formatValidation = validateNWCURI(nwcUri);
@@ -159,62 +198,66 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
     
     const userAccount = await (AccountModel as any).findOne({ discord_id });
     if (!userAccount) {
-      log(`@${userData.user.username} doesn't have a registered account`, "err");
+      log(`@${userData.user.username} doesn't have a registered account, creating bot service wallet`, "info");
+      
+      const serviceWalletResult = await createServiceWallet(discord_id, userData.user.username);
+      if (serviceWalletResult.success) {
+        return await getAccount(interaction, discord_id);
+      }
+    }
 
-      if (interaction.user!.id === discord_id) {
-        return {
-          success: false,
-          message: "❌ **You don't have a registered account.**\n\nUse the `/connect` command to connect your NWC wallet."
-        }
-      } else {
-        return {
-          success: false,
-          message: "❌ **The user you're trying to send to doesn't have a registered account.**"
+    if (userAccount.nwc_uri) {
+      const nwcUri = decryptData(userAccount.nwc_uri, SALT);
+      if (nwcUri) {
+        const validationResult = await validateAccount(nwcUri, userData.user.username);
+        if (validationResult.success) {
+          const createdAccount: AccountResult = {
+            success: true,
+            nwcClient: validationResult.nwcClient,
+            balance: validationResult.balance,
+            userAccount: userAccount as Account,
+            isServiceAccount: false
+          };
+
+          accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
+          return createdAccount;
         }
       }
     }
 
-    const nwcUri = decryptData(userAccount.nwc_uri, SALT);
-    if (!nwcUri) {
-      log(`@${userData.user.username} - Error decrypting NWC URI`, "err");
+    if (userAccount.bot_nwc_uri) {
+      const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
+      if (botNwcUri) {
+        const validationResult = await validateAccount(botNwcUri, userData.user.username);
+        if (validationResult.success) {
+          log(`@${userData.user.username} - using bot service account`, "info");
+          
+          const createdAccount: AccountResult = {
+            success: true,
+            nwcClient: validationResult.nwcClient,
+            balance: validationResult.balance,
+            userAccount: userAccount as Account,
+            isServiceAccount: true
+          };
 
-      if (interaction.user!.id === discord_id) {
-        return {
-          success: false,
-          message: "❌ **Error recovering your NWC connection.**\n\nUse the `/connect` command to reconnect your wallet."
-        }
-      } else {
-        return {
-          success: false,
-          message: "❌ **Error recovering the user's NWC connection.**"
-        }
-      }
-    }
-
-    const validationResult = await validateAccount(nwcUri, userData.user.username);
-    if (!validationResult.success) {
-      if (interaction.user!.id === discord_id) {
-        return {
-          success: false,
-          message: `${validationResult.message}\n\nUse the \`/connect\` command to reconnect your wallet.`
-        }
-      } else {
-        return {
-          success: false,
-          message: `❌ **The connection of the user you're trying to send to has an error.**`
+          accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
+          return createdAccount;
         }
       }
     }
 
-    const createdAccount: AccountResult = {
-      success: true,
-      nwcClient: validationResult.nwcClient,
-      balance: validationResult.balance,
-      userAccount: userAccount as Account
-    };
+    if (interaction.user!.id === discord_id) {
+      return {
+        success: false,
+        message: "❌ **Your account connection is not working.**\n\nPlease use the `/connect` command to reconnect your wallet or try again later."
+      };
+    } else {
+      return {
+        success: false,
+        message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to reconnect their wallet or try again later."
+      };
+    }
 
-    accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
-    return createdAccount;
   } catch (err: any) {
     log(`Unexpected error getting account: ${err.message}`, "err");
     return {
@@ -224,4 +267,92 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
   }
 };
 
-export { createOrUpdateAccount, getServiceAccount, validateAccount, getAccount };
+const createServiceWallet = async (discord_id: string, discord_username: string): Promise<{ success: boolean; walletId?: string; error?: string }> => {
+  try {
+    const ALBYHUB_URL = requiredEnvVar("ALBYHUB_URL");
+    const ALBYHUB_TOKEN = requiredEnvVar("ALBYHUB_TOKEN");
+
+    const requestBody = {
+      name: discord_username,
+      pubkey: "",
+      budgetRenewal: "monthly",
+      maxAmount: 1000000,
+      scopes: [
+        "pay_invoice",
+        "get_balance",
+        "make_invoice",
+        "lookup_invoice",
+        "list_transactions",
+        "notifications"
+      ],
+      returnTo: "",
+      isolated: true
+    };
+
+    log(`Creating service wallet for @${discord_username} via Alby Hub API`, "info");
+
+    const response = await fetch(`${ALBYHUB_URL}/api/apps`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${ALBYHUB_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      log(`Alby Hub API error for @${discord_username}: ${response.status} - ${errorText}`, "err");
+      return {
+        success: false,
+        error: `Alby Hub API error: ${response.status} - ${errorText}`
+      };
+    }
+
+    const responseData = await response.json();
+    
+    if (responseData.id && responseData.pairingUri) {
+      log(`Service wallet created successfully for @${discord_username} with ID: ${responseData.id}`, "info");
+      
+      let userAccount = await (AccountModel as any).findOne({ discord_id });
+      
+      if (userAccount) {
+        userAccount.bot_nwc_uri = encryptData(responseData.pairingUri, SALT);
+        userAccount.discord_username = discord_username;
+        await userAccount.save();
+        log(`Updated existing account for @${discord_username} with bot NWC URI`, "info");
+      } else {
+        userAccount = new AccountModel({
+          discord_id,
+          discord_username,
+          nwc_uri: "",
+          bot_nwc_uri: encryptData(responseData.pairingUri, SALT)
+        });
+        await userAccount.save();
+        log(`Created new account for @${discord_username} with bot NWC URI`, "info");
+      }
+      
+      accountsCache.delete(`account:${discord_id}`);
+      
+      return {
+        success: true,
+        walletId: responseData.id.toString()
+      };
+    } else {
+      log(`Unexpected response format from Alby Hub for @${discord_username}`, "err");
+      return {
+        success: false,
+        error: "Unexpected response format from Alby Hub"
+      };
+    }
+
+  } catch (err: any) {
+    log(`Error creating service wallet for @${discord_username}: ${err.message}`, "err");
+    return {
+      success: false,
+      error: `Network error: ${err.message}`
+    };
+  }
+};
+
+export { connectAccount, connectUserAccount, getServiceAccount, validateAccount, getAccount, createServiceWallet };

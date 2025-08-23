@@ -3,6 +3,8 @@ import { NWCClient } from "@getalby/sdk";
 import bolt11, { PaymentRequestObject, TagsObject } from 'bolt11';
 import { TextChannel, BaseInteraction } from "discord.js";
 import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11ValidationResult } from "../types/index.js";
+import { formatter } from "./helperFormatter.js";
+import { BOT_CONFIG } from "./config.js";
 
 export const signupCache = new SimpleCache();
 
@@ -87,17 +89,28 @@ const validateAmountAndBalance = (amount: number, balance: number): BalanceValid
   if (amount > balance)
     return {
       status: false,
-      content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${balance}`,
+      content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${formatter(0,0).format(balance)}`,
     };
 
-  const routingFee = Math.ceil(balance * 0.005);
-  const maxSendableAmount = Math.floor(balance - routingFee);
-  
-  if (amount > maxSendableAmount)
+  const minReserve = BOT_CONFIG.MIN_ROUTING_FEE_RESERVE;
+  const routingFee = Math.ceil(balance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
+  const totalReserve = Math.max(routingFee, minReserve);
+
+  if (balance < totalReserve) {
     return {
       status: false,
-      content: `You cannot send more than ${maxSendableAmount} sats to reserve 0.5% (${routingFee} sats) for potential routing fees.`,
+      content: `You don't have enough balance to perform this action.\n You need to keep a reserve of ${formatter(0,0).format(totalReserve)} sats for potential routing fees.`,
     };
+  }
+
+  const maxSendableAmount = Math.floor(balance - totalReserve);
+  
+  if (amount > maxSendableAmount) {
+    return {
+      status: false,
+      content: `Your balance is ${formatter(0,0).format(balance)} sats, but you cannot send more than ${maxSendableAmount} sats. You need to keep a reserve of ${totalReserve} sats for potential routing fees.`,
+    };
+  }
 
   return {
     status: true,

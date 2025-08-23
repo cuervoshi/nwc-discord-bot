@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from "discord.js";
-import { createOrUpdateAccount } from "../handlers/accounts.js";
+import { connectAccount } from "../handlers/accounts.js";
 import {
   validateNWCURI,
   testNWCConnection,
@@ -56,7 +56,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       });
     }
 
-    const account = await createOrUpdateAccount(user.id, user.username, NWC_URI);
+    const account = await connectAccount(user.id, user.username, NWC_URI);
     if (!account) {
       log(`@${user.username} - Error creating or updating account`, "err");
 

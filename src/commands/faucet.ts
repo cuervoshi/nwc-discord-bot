@@ -9,9 +9,9 @@ import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
 } from "../utils/helperFunctions.js";
-import { FAUCET_CONFIG } from "../utils/faucetConfig.js";
 import { log } from "../handlers/log.js";
 import { AccountResult } from "../types/index.js";
+import { FAUCET_CONFIG } from "#utils/config";
 
 const create = () => {
   const command = new SlashCommandBuilder()
