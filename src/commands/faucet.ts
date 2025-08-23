@@ -46,7 +46,8 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         })
         .setDescription(
           `❌ **You don't have enough balance to create a faucet.**\n\n` +
-          `💰 **Your current balance:** ${balance} satoshis\n` +
+          `💰 **Your current balance:** ${balance.toLocaleString()} satoshis\n` +
+          `💳 **Maximum available for use:** ${Math.floor(balance * 0.995).toLocaleString()} satoshis (0.5% reserved for routing fees)\n` +
           `🎁 **Minimum to gift:** 1 satoshi\n` +
           `📊 **Total minimum needed:** ${FAUCET_CONFIG.MINIMUM_BALANCE} satoshis\n\n` +
           `**You need at least ${FAUCET_CONFIG.MINIMUM_BALANCE - balance} more satoshis to create a faucet.**\n\n` +
@@ -75,7 +76,8 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         
         `**Example:** If you select 100 sats for 10 people, each person who claims will receive 10 sats.\n\n` +
         
-        `**Your current balance:** ${balance} satoshis\n\n`);
+        `**Your current balance:** ${balance.toLocaleString()} satoshis\n` +
+        `**Maximum available for use:** ${Math.floor(balance * 0.995).toLocaleString()} satoshis (0.5% reserved for routing fees)\n\n`);
       
     await interaction.editReply({
       embeds: [embed],
