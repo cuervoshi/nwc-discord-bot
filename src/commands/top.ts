@@ -77,7 +77,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
       const informationText: string = isPool
         ? "You can make donations using the /donate <amount> command"
-        : "You can gift sats with the /zap and /gift commands";
+        : "You can gift sats with the /zap and /faucet commands";
 
       const totalDonated: number = await getSumOfDonationAmounts(
         isPool ? "pool" : "community"

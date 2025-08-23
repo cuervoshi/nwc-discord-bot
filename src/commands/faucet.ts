@@ -15,7 +15,7 @@ import { AccountResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("gift")
+    .setName("faucet")
     .setDescription("Create a faucet to gift satoshis to the community");
 
   return command.toJSON();
@@ -92,7 +92,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
   } catch (err: any) {
     log(
-      `Error in /gift command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
+      `Error in /faucet command executed by @${interaction.user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
 

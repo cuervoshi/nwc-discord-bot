@@ -48,7 +48,7 @@ docker-compose up --build
 /recharge amount: <integer> : Recharge your lightning network account with an invoice
 /send address: <string> amount: <integer> : Withdraw satoshis to an external account outside discord
 /request amount: <integer> description: <string> : Request payment for an invoice
-/gift: Create an open invoice that any user can claim
+/faucet: Create an open invoice that any user can claim
 /top type: <"pool" | "community"> : Returns the TOP 10 ranking of users who sent sats
 /zap user: <user> amount: <integer> message: <string>: Send sats to a user in discord
 /connect nwc_uri: <string>: Connect your wallet through Nostr Wallet Connect
