@@ -1,6 +1,6 @@
 import dedent from "dedent-js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ButtonInteraction, Message } from "discord.js";
-import { getServiceAccount, getAccount } from "../../handlers/accounts.js";
+import { getBotServiceAccount, getAccount } from "../../handlers/accounts.js";
 import { updateUserRank } from "../../handlers/donate.js";
 import {
   addClaimerOnFaucet,
@@ -86,7 +86,7 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     const faucetId: string = faucet._id.toString();
 
     const userWallet: AccountResult = await getAccount(interaction, userId);
-    const faucetWallet: ServiceAccountResult = await getServiceAccount(interaction);
+    const faucetWallet: ServiceAccountResult = await getBotServiceAccount();
 
     if (!userWallet.success || !userWallet.nwcClient) {
       throw new Error("Could not get user account");
@@ -138,7 +138,7 @@ const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     log(`${user.username} closing faucet ${faucetId}`, "info");
 
     const wallet: AccountResult = await getAccount(interaction, user.id);
-    const faucetWallet: ServiceAccountResult = await getServiceAccount(interaction);
+    const faucetWallet: ServiceAccountResult = await getBotServiceAccount();
     const closedFaucet = await closeFaucet(faucetId);
 
     if (closedFaucet && wallet.success && wallet.nwcClient) {

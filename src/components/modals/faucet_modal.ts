@@ -1,6 +1,6 @@
 import { log } from "../../handlers/log.js";
 import { validateAmountAndBalance, formatErrorMessage, formatSuccessMessage } from "../../utils/helperFunctions.js";
-import { getAccount, getServiceAccount } from "../../handlers/accounts.js";
+import { getAccount, getBotServiceAccount } from "../../handlers/accounts.js";
 import { FAUCET_CONFIG, BOT_CONFIG } from "../../utils/config.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ModalSubmitInteraction } from "discord.js";
@@ -81,7 +81,7 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
       return;
     }
 
-    const serviceAccount: ServiceAccountResult = await getServiceAccount(interaction);
+    const serviceAccount: ServiceAccountResult = await getBotServiceAccount();
     if (!serviceAccount.success) {
       await interaction.editReply({
         content: serviceAccount.message,

@@ -4,6 +4,7 @@ import { connect } from "mongoose";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { initializeBotAccount } from "./handlers/accounts.js";
 
 config();
 
@@ -27,11 +28,19 @@ client.commands = new Collection();
 client.components = new Collection();
 
 connect(mongoURI)
-  .then(() => {
-    console.log("✅ Conectado a MongoDB");
+  .then(async () => {
+    console.log("✅ Connected to MongoDB");
+
+    const botInitResult = await initializeBotAccount();
+
+    if (botInitResult.success) {
+      console.log(`✅ Bot service account ready - Balance: ${botInitResult.balance} sats`);
+    } else {
+      console.error(`❌ Bot service account initialization failed: ${botInitResult.message}`);
+    }
   })
   .catch((err) => {
-    console.error("❌ Error conectando a MongoDB:", err);
+    console.error("❌ Error connecting to MongoDB:", err);
   });
 
 const eventsPath = path.join(__dirname, "events");

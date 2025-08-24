@@ -12,8 +12,9 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<url>/<dbname>
 # Crypta pool address for donations
 POOL_ADDRESS=pozo@lacrypta.ar
 
-# Nostr Wallet Connect URI for bot account (manages faucet funds)
-SERVICE_NWC_URI=nostr+walletconnect://...
+# Alby Hub configuration (REQUIRED for bot service account)
+ALBYHUB_URL=https://hub.getalby.com
+ALBYHUB_TOKEN=your_alby_hub_api_token
 
 # Salt for encrypting the nwc_uri
 SALT=123456789

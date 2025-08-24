@@ -11,7 +11,8 @@ import { AccountResult, ServiceAccountResult } from "../types/index.js";
 const accountsCache = new SimpleCache();
 const SALT: string = process.env.SALT ?? "";
 
-const SERVICE_NWC_URI: string = process.env.SERVICE_NWC_URI ?? "";
+// Remove SERVICE_NWC_URI dependency
+// const SERVICE_NWC_URI: string = process.env.SERVICE_NWC_URI ?? "";
 
 const connectAccount = async (discord_id: string, discord_username: string, nwc_uri: string): Promise<Account | null> => {
   try {
@@ -80,56 +81,76 @@ const connectUserAccount = async (discord_id: string, discord_username: string, 
   }
 };
 
-const getServiceAccount = async (interaction: Interaction): Promise<ServiceAccountResult> => {
+const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
   try {
-    const cachedAccount = accountsCache.get(`account:service`) as ServiceAccountResult;
+    const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
+    
+    const cachedAccount = accountsCache.get(`account:bot-service`) as ServiceAccountResult;
     if (cachedAccount) return cachedAccount;
 
-    log(`Getting service account for faucets`, "info");
+    log(`Getting bot service account`, "info");
 
-    const formatValidation = validateNWCURI(SERVICE_NWC_URI);
-    if (!formatValidation.valid) {
-      log(`Invalid service NWC URI: ${formatValidation.error}`, "err");
+    let botAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
+    
+    if (!botAccount) {
+      log(`Bot service account not found, creating new one`, "info");
+      
+      const serviceWalletResult = await createServiceWallet(BOT_TOKEN, "NWC Zap Bot Service");
+      
+      if (!serviceWalletResult.success) {
+        log(`Failed to create bot service wallet: ${serviceWalletResult.error}`, "err");
+        return {
+          success: false,
+          message: `❌ **Failed to create bot service account:** ${serviceWalletResult.error}`
+        };
+      }
+      
+      botAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
+      if (!botAccount) {
+        return {
+          success: false,
+          message: "❌ **Bot service account creation failed**"
+        };
+      }
+    }
+
+    const botNwcUri = decryptData(botAccount.bot_nwc_uri, SALT);
+    if (!botNwcUri) {
       return {
         success: false,
-        message: `❌ **Service configuration error:** ${formatValidation.error}`
+        message: "❌ **Bot service account NWC URI not found**"
       };
     }
 
-    const connectionTest = await testNWCConnection(SERVICE_NWC_URI);
-    if (!connectionTest.valid) {
-      log(`Service NWC connection error: ${connectionTest.error}`, "err");
+    const validationResult = await validateAccount(botNwcUri, "Bot-Service");
+    if (!validationResult.success) {
       return {
         success: false,
-        message: `❌ **Service connection error:** ${connectionTest.error}`
+        message: `❌ **Bot service account validation failed:** ${validationResult.message}`
       };
     }
-
-    const nwcClient = new NWCClient({
-      nostrWalletConnectUrl: SERVICE_NWC_URI
-    });
-
-    log(`Service account validated successfully - Balance: ${connectionTest.balance} sats`, "info");
 
     const createdAccount: ServiceAccountResult = {
       success: true,
-      nwcClient,
-      balance: connectionTest.balance,
-      isServiceAccount: true, 
+      nwcClient: validationResult.nwcClient,
+      balance: validationResult.balance,
+      isServiceAccount: true,
       accountInfo: {
-        type: 'service',
-        purpose: 'faucet_management',
-        balance: connectionTest.balance
+        type: 'bot-service',
+        purpose: 'faucet_management_and_commissions',
+        balance: validationResult.balance
       }
     };
 
-    accountsCache.set(`account:service`, createdAccount, 7200000);
+    accountsCache.set(`account:bot-service`, createdAccount, 7200000);
+    log(`Bot service account validated successfully - Balance: ${validationResult.balance} sats`, "info");
+    
     return createdAccount;
   } catch (err: any) {
-    log(`Error getting service account: ${err.message}`, "err");
+    log(`Error getting bot service account: ${err.message}`, "err");
     return {
       success: false,
-      message: "❌ **Unexpected error getting the service account.**"
+      message: "❌ **Unexpected error getting the bot service account.**"
     };
   }
 };
@@ -355,4 +376,31 @@ const createServiceWallet = async (discord_id: string, discord_username: string)
   }
 };
 
-export { connectAccount, connectUserAccount, getServiceAccount, validateAccount, getAccount, createServiceWallet };
+const initializeBotAccount = async (): Promise<{ success: boolean; message?: string; balance?: number }> => {
+  try {
+    log(`Initializing bot service account...`, "info");
+    
+    const botServiceResult = await getBotServiceAccount();
+    if (botServiceResult.success) {
+      log(`✅ Bot service account initialized successfully - Balance: ${botServiceResult.balance} sats`, "done");
+      return {
+        success: true,
+        balance: botServiceResult.balance
+      };
+    } else {
+      log(`❌ Failed to initialize bot service account: ${botServiceResult.message}`, "err");
+      return {
+        success: false,
+        message: botServiceResult.message
+      };
+    }
+  } catch (err: any) {
+    log(`Error initializing bot account: ${err.message}`, "err");
+    return {
+      success: false,
+      message: `Unexpected error: ${err.message}`
+    };
+  }
+};
+
+export { connectAccount, connectUserAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount };

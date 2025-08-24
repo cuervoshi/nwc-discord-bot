@@ -60,6 +60,16 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         }
       ]);
 
+    if (accountResult.isServiceAccount) {
+      embed.addFields([
+        {
+          name: "⚠️ Service Account Notice",
+          value: "You're using a custodial wallet created by the bot. A 0.5% fee applies to all transfers. Use `/connect` to link your own wallet and avoid fees.",
+          inline: false
+        }
+      ]);
+    }
+
     log(
       `Balance for @${user.username} resolved: ${balance} satoshis`,
       "info"
