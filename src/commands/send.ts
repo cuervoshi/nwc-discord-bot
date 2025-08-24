@@ -6,8 +6,8 @@ import {
 } from "../utils/helperFunctions.js";
 import lnurl from "lnurl-pay";
 import { log } from "../handlers/log.js";
-import { Satoshis } from "lnurl-pay/dist/types/types.js";
-import { BalanceValidationResult, InvoiceResult } from "../types/index.js";
+import { LnUrlRequestInvoiceResponse, Satoshis } from "lnurl-pay/dist/types/types.js";
+import { BalanceValidationResult } from "../types/index.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -65,7 +65,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return EphemeralMessageResponse(interaction, isValidAmount.content);
     }
 
-    const invoice: InvoiceResult = await lnurl.requestInvoice({
+    const invoice: LnUrlRequestInvoiceResponse = await lnurl.requestInvoice({
       lnUrlOrAddress: address,
       tokens: amount as Satoshis,
     });

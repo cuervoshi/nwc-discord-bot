@@ -1,13 +1,7 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema } from "mongoose";
+import { Account } from "types/account.js";
 
-export interface IAccount extends Document {
-  discord_id: string;
-  discord_username: string;
-  nwc_uri: string;
-  bot_nwc_uri?: string;
-}
-
-const accountSchema = new Schema<IAccount>({
+const accountSchema = new Schema<Account>({
   discord_id: { type: String, required: true },
   discord_username: { type: String, required: true },
   nwc_uri: { type: String, required: false },
@@ -15,4 +9,4 @@ const accountSchema = new Schema<IAccount>({
 });
 
 export default mongoose.models.accounts ||
-  mongoose.model<IAccount>("accounts", accountSchema);
+  mongoose.model<Account>("accounts", accountSchema);

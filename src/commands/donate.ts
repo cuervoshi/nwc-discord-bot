@@ -13,8 +13,8 @@ import { updateUserRank } from "../handlers/donate.js";
 import lnurl from "lnurl-pay";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
-import { Satoshis } from "lnurl-pay/dist/types/types.js";
-import { BalanceValidationResult, InvoiceResult } from "../types/index.js";
+import { LnUrlRequestInvoiceResponse, Satoshis } from "lnurl-pay/dist/types/types.js";
+import { BalanceValidationResult } from "../types/index.js";
 
 interface RankResult {
   amount?: number;
@@ -66,7 +66,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return FollowUpEphemeralResponse(interaction, isValidAmount.content);
     }
 
-    const invoice: InvoiceResult = await lnurl.requestInvoice({
+    const invoice: LnUrlRequestInvoiceResponse = await lnurl.requestInvoice({
       lnUrlOrAddress: process.env.POOL_ADDRESS || "",
       tokens: amount as Satoshis,
     });

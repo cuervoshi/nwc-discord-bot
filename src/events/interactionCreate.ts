@@ -1,9 +1,10 @@
 import { Events, Interaction } from "discord.js";
+import { ExtendedClient } from "types/discord.js";
 
 const name = Events.InteractionCreate;
 const once = false;
 
-const invoke = async (client: any, interaction: Interaction) => {
+const invoke = async (client: ExtendedClient, interaction: Interaction) => {
   try {
     // Handle slash commands
     if (interaction.isChatInputCommand()) {

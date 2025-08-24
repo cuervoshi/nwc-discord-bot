@@ -4,7 +4,8 @@ import { EphemeralMessageResponse, FollowUpEphemeralResponse } from "../utils/he
 import { AuthorConfig } from "../utils/helperConfig.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
-import { AccountResult, InvoiceResult } from "../types/index.js";
+import { AccountResult } from "../types/index.js";
+import { Nip47Transaction } from "@getalby/sdk";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -60,7 +61,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return EphemeralMessageResponse(interaction, wallet.message || "Error getting account");
     }
 
-    const invoiceDetails: InvoiceResult = await wallet.nwcClient.makeInvoice({
+    const invoiceDetails: Nip47Transaction = await wallet.nwcClient.makeInvoice({
       amount: amount * 1000,
       description: description,
     });

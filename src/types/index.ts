@@ -1,6 +1,8 @@
 import { NWCClient } from "@getalby/sdk";
 import { Account } from "./account.js";
 import { PaymentRequestObject, TagsObject } from "bolt11";
+import { Interaction } from "discord.js";
+import { ExtendedClient } from "./discord.js";
 
 export interface BotConfig {
   token: string;
@@ -12,18 +14,18 @@ export interface BotConfig {
 
 export interface Command {
   create: () => any;
-  invoke: (interaction: any) => Promise<void>;
+  invoke: (interaction: Interaction) => Promise<void>;
 }
 
 export interface Component {
   customId: string;
-  invoke: (interaction: any) => Promise<void>;
+  invoke: (interaction: Interaction) => Promise<void>;
 }
 
 export interface Event {
   name: string;
   once: boolean;
-  invoke: (client: any, ...args: any[]) => Promise<void>;
+  invoke: (client: ExtendedClient, ...args: any[]) => Promise<void>;
 }
 
 export interface AccountResult {
@@ -82,8 +84,4 @@ export interface BOLT11ValidationResult {
   description?: string;
   timestamp?: number;
   timeExpireDate?: number;
-}
-
-export interface InvoiceResult {
-  invoice: string;
 }

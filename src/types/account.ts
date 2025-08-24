@@ -5,4 +5,5 @@ export interface Account extends Document {
   discord_id: string;
   discord_username: string;
   nwc_uri: string;
+  bot_nwc_uri?: string;
 }
