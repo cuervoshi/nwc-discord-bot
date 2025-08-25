@@ -2,8 +2,11 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from "discord.js";
-import { getAccount } from "../handlers/accounts.js";
+import { getAccount, checkBotAccountFunds } from "../handlers/accounts.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
@@ -41,11 +44,11 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const { nwcClient } = accountResult;
     const response: BalanceResponse = await nwcClient.getBalance();
-    
+
     if (!response) {
       throw new Error("Error getting balance");
     }
-    
+
     const balance: number = Math.floor(response.balance / 1000);
 
     const embed = new EmbedBuilder()
@@ -60,6 +63,8 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         }
       ]);
 
+    const components: any[] = [];
+
     if (accountResult.isServiceAccount) {
       embed.addFields([
         {
@@ -68,6 +73,29 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
           inline: false
         }
       ]);
+    } else {
+      const botFundsResult = await checkBotAccountFunds(user.id);
+      
+      if (botFundsResult.hasFunds && botFundsResult.balance) {
+        embed.addFields([
+          {
+            name: "⚠️ Bot Account Funds Available",
+            value: `You have **${formatter(0, 0).format(botFundsResult.balance)} sats** remaining in your bot account. Click the button below to transfer them to your connected wallet.`,
+            inline: false
+          }
+        ]);
+
+        const recoverButton = new ButtonBuilder()
+          .setCustomId("recover_funds")
+          .setLabel("Recovery funds")
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji("💰");
+
+        const row = new ActionRowBuilder<ButtonBuilder>()
+          .addComponents(recoverButton);
+
+        components.push(row);
+      }
     }
 
     log(
@@ -77,6 +105,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     await interaction.editReply({
       embeds: [embed],
+      components: components
     });
 
   } catch (err: any) {

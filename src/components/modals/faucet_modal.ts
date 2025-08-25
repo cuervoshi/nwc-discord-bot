@@ -4,22 +4,19 @@ import { getAccount, getBotServiceAccount } from "../../handlers/accounts.js";
 import { FAUCET_CONFIG, BOT_CONFIG } from "../../utils/config.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ModalSubmitInteraction } from "discord.js";
+import { NWCClient } from "@getalby/sdk";
 
 interface AccountResult {
   success: boolean;
   message?: string;
   balance?: number;
-  nwcClient?: {
-    payInvoice: (params: { invoice: string }) => Promise<any>;
-  };
+  nwcClient?: NWCClient;
 }
 
 interface ServiceAccountResult {
   success: boolean;
   message?: string;
-  nwcClient?: {
-    makeInvoice: (params: { amount: number; description: string }) => Promise<{ invoice: string }>;
-  };
+  nwcClient?: NWCClient;
 }
 
 interface BalanceValidationResult {

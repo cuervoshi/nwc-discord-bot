@@ -7,6 +7,7 @@ import redisCache from "./RedisCache.js";
 import { Interaction } from "discord.js";
 import { Account } from "../types/account.js";
 import { AccountResult, ServiceAccountResult } from "../types/index.js";
+import { BOT_CONFIG } from "#utils/config";
 
 const accountsCache = redisCache;
 const SALT: string = process.env.SALT ?? "";
@@ -491,4 +492,133 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
   }
 };
 
-export { connectAccount, connectUserAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount };
+const checkBotAccountFunds = async (discord_id: string): Promise<{ hasFunds: boolean; balance?: number; error?: string }> => {
+  try {
+    const userAccount = await (AccountModel as any).findOne({ discord_id });
+    if (!userAccount || !userAccount.bot_nwc_uri) {
+      return { hasFunds: false };
+    }
+
+    const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
+    if (!botNwcUri) {
+      return { hasFunds: false };
+    }
+
+    const validationResult = await validateAccount(botNwcUri, "Bot-Account-Check");
+    if (!validationResult.success) {
+      return { hasFunds: false };
+    }
+
+    const balance = Math.floor(validationResult.balance - BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
+
+    return {
+      hasFunds: balance > 1,
+      balance: balance
+    };
+  } catch (err: any) {
+    log(`Error checking bot account funds for user ${discord_id}: ${err.message}`, "err");
+    return { hasFunds: false, error: err.message };
+  }
+};
+
+const transferBotFundsToUser = async (discord_id: string): Promise<{ success: boolean; message?: string; transferredAmount?: number }> => {
+  try {
+    const userAccount = await (AccountModel as any).findOne({ discord_id });
+    if (!userAccount || !userAccount.bot_nwc_uri) {
+      return {
+        success: false,
+        message: "❌ **No bot account found to transfer funds from.**"
+      };
+    }
+
+    if (!userAccount.nwc_uri) {
+      return {
+        success: false,
+        message: "❌ **You need to connect your own wallet first using `/connect` to recover funds.**"
+      };
+    }
+
+    const userNwcUri = decryptData(userAccount.nwc_uri, SALT);
+    if (!userNwcUri) {
+      return {
+        success: false,
+        message: "❌ **User wallet URI not found.**"
+      };
+    }
+
+    const userValidationResult = await validateAccount(userNwcUri, "User-Transfer");
+    if (!userValidationResult.success) {
+      return {
+        success: false,
+        message: `❌ **User wallet validation failed:** ${userValidationResult.message}`
+      };
+    }
+
+    const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
+    if (!botNwcUri) {
+      return {
+        success: false,
+        message: "❌ **Bot account URI not found.**"
+      };
+    }
+
+    const botValidationResult = await validateAccount(botNwcUri, "Bot-Transfer");
+    if (!botValidationResult.success) {
+      return {
+        success: false,
+        message: `❌ **Bot account validation failed:** ${botValidationResult.message}`
+      };
+    }
+
+    const botBalance = Math.floor(botValidationResult.balance - BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
+    if (botBalance <= 1) {
+      return {
+        success: false,
+        message: "❌ **No funds available to transfer from bot account.**"
+      };
+    }
+
+    const invoiceResponse = await userValidationResult.nwcClient.makeInvoice({
+      amount: botBalance * 1000,
+      description: "Transfer from bot account"
+    });
+
+    console.log(invoiceResponse);
+
+    if (!invoiceResponse || !invoiceResponse.invoice) {
+      return {
+        success: false,
+        message: "❌ **Failed to create invoice in your wallet.**"
+      };
+    }
+
+    const botNwcClient = new NWCClient({ nostrWalletConnectUrl: botNwcUri });
+    const paymentResponse = await botNwcClient.payInvoice({
+      invoice: invoiceResponse.invoice
+    });
+
+    if (!paymentResponse || !paymentResponse.preimage) {
+      return {
+        success: false,
+        message: "❌ **Failed to transfer funds from bot account.**"
+      };
+    }
+
+    log(`Successfully transferred ${botBalance} sats from bot account to user ${discord_id}`, "info");
+
+    return {
+      success: true,
+      transferredAmount: botBalance,
+      message: `✅ **Successfully transferred ${botBalance} sats from your bot account to your connected wallet!**`
+    };
+
+  } catch (err: any) {
+    log(`Error transferring bot funds for user ${discord_id}: ${err.message}`, "err");
+    return {
+      success: false,
+      message: `❌ **Transfer failed:** ${err.message}`
+    };
+  }
+};
+
+export { connectAccount, connectUserAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser };

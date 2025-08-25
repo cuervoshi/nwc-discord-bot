@@ -1,5 +1,5 @@
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from "discord.js";
-import { connectAccount } from "../handlers/accounts.js";
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { connectAccount, checkBotAccountFunds } from "../handlers/accounts.js";
 import {
   validateNWCURI,
   testNWCConnection,
@@ -81,10 +81,36 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         },
       ]);
 
+    // Create components array for buttons
+    const components: any[] = [];
+
+    const botFundsResult = await checkBotAccountFunds(user.id);
+    if (botFundsResult.hasFunds && botFundsResult.balance) {
+      embed.addFields([
+        {
+          name: "💰 Bot Account Funds Available",
+          value: `You have **${formatter(0, 0).format(botFundsResult.balance)} sats** remaining in your bot account. Click the button below to transfer them to your connected wallet.`,
+          inline: false
+        }
+      ]);
+
+      const recoverButton = new ButtonBuilder()
+        .setCustomId("recover_funds")
+        .setLabel("Recovery funds")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("💰");
+      
+      const row = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(recoverButton);
+      
+      components.push(row);
+    }
+
     log(`@${user.username} successfully connected with NWC - Balance: ${connectionTest.balance} sats`, "info");
 
     await interaction.editReply({
       embeds: [embed],
+      components: components
     });
 
   } catch (err: any) {
