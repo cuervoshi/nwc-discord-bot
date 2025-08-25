@@ -4,14 +4,6 @@ import { PaymentRequestObject, TagsObject } from "bolt11";
 import { Interaction } from "discord.js";
 import { ExtendedClient } from "./discord.js";
 
-export interface BotConfig {
-  token: string;
-  mongoURI: string;
-  poolAddress: string;
-  lightningDomain: string;
-  salt: string;
-}
-
 export interface Command {
   create: () => any;
   invoke: (interaction: Interaction) => Promise<void>;

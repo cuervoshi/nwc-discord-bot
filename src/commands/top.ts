@@ -10,25 +10,13 @@ interface TopUser {
   amount: number;
 }
 
-const availableTypes = ["pozo", "comunidad"];
-
-
 const create = () => {
   const command = new SlashCommandBuilder()
     .setName("top")
-    .setDescription("Returns the TOP 10 ranking of users who sent sats")
-    .addStringOption((opt) =>
-      opt
-        .setName("type")
-        .setDescription(
-          "Request a specific ranking (parameters: pool or community)"
-        )
-        .setRequired(false)
-    );
+    .setDescription("Returns the TOP 10 ranking of users who sent sats through the bot");
 
   return command.toJSON();
 };
-
 
 const invoke = async (interaction: ChatInputCommandInteraction) => {
   try {
@@ -37,18 +25,9 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     await interaction.deferReply();
 
-    const typeParam = interaction.options.get('type');
+    log(`@${user.username} executed /top`, "info");
 
-    const cleanedType: string =
-      typeParam?.value && typeof typeParam.value === 'string' && availableTypes.includes(typeParam.value)
-        ? typeParam.value
-        : "pool";
-
-    log(`@${user.username} executed /top ${cleanedType}`, "info");
-
-    const isPool: boolean = cleanedType === "pool";
-
-    const topUsers: TopUser[] = await getTopRanking(cleanedType);
+    const topUsers: TopUser[] = await getTopRanking("sats_sent");
 
     let rankOutput: string = ``;
     if (topUsers && topUsers.length) {
@@ -71,41 +50,27 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         rankOutput = dedent(rankOutput);
       });
 
-      const title: string = isPool
-        ? "TOP 10 • pool donors"
-        : "TOP 10 • users who gifted sats";
-
-      const informationText: string = isPool
-        ? "You can make donations using the /donate <amount> command"
-        : "You can gift sats with the /zap and /faucet commands";
-
-      const totalDonated: number = await getSumOfDonationAmounts(
-        isPool ? "pool" : "community"
-      );
+      const totalSent: number = await getSumOfDonationAmounts("sats_sent");
 
       const embed = new EmbedBuilder()
         .setColor("#0099ff")
         .setAuthor(AuthorConfig)
         .addFields(
-          { name: title, value: rankOutput },
+          { name: "TOP 10 • sats sent", value: rankOutput },
           {
-            name: isPool ? "Total donated" : "Total sent",
-            value: `${formatter(0, 0).format(totalDonated)}`,
+            name: "Total sent",
+            value: `${formatter(0, 0).format(totalSent)}`,
           },
           {
             name: "Information",
-            value: informationText,
+            value: "You can send sats with the /zap and /faucet commands",
           }
         );
 
       await interaction.editReply({ embeds: [embed] });
     } else {
-      const content: string = isPool
-        ? "There are no users who have donated to the pool yet."
-        : "There are no users who have sent sats yet.";
-
       await interaction.editReply({
-        content,
+        content: "There are no users who have sent sats yet.",
       });
     }
   } catch (err: any) {

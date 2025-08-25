@@ -1,7 +1,7 @@
 import dedent from "dedent-js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ButtonInteraction, Message } from "discord.js";
 import { getBotServiceAccount, getAccount } from "../../handlers/accounts.js";
-import { updateUserRank } from "../../handlers/donate.js";
+import { trackSatsSent } from "../../handlers/donate.js";
 import {
   addClaimerOnFaucet,
   closeFaucet,
@@ -110,7 +110,7 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     const fieldInfo = interaction.message.embeds[0].fields[0];
 
     if (senderUserId) {
-      await updateUserRank(senderUserId, "comunidad", faucet.amount);
+      await trackSatsSent(senderUserId, faucet.amount);
     }
 
     await addClaimerOnFaucet(faucetId, userId);

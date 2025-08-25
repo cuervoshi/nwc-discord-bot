@@ -1,7 +1,7 @@
 import { MessageReaction, User } from "discord.js";
 import { zap } from "../handlers/zap.js";
 import { TimedMessage } from "../utils/helperFunctions.js";
-import { updateUserRank } from "../handlers/donate.js";
+import { trackSatsSent } from "../handlers/donate.js";
 import { log } from "../handlers/log.js";
 
 const once = false;
@@ -52,7 +52,7 @@ async function invoke(reaction: MessageReaction, user: User) {
 
     const onSuccess = async () => {
       try {
-        await updateUserRank(user.id, "comunidad", amount);
+        await trackSatsSent(user.id, amount);
 
         log(
           `@${user.username} pago la factura del zap hacia @${receiver.username}`,

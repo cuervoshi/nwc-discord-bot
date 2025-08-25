@@ -79,4 +79,8 @@ const getSumOfDonationAmounts = async (type: string): Promise<number | null> => 
   }
 };
 
-export { getSumOfDonationAmounts, getTopRanking, updateUserRank };
+const trackSatsSent = async (discord_id: string, amount: number): Promise<RankResult | null> => {
+  return await updateUserRank(discord_id, "sats_sent", amount);
+};
+
+export { getSumOfDonationAmounts, getTopRanking, updateUserRank, trackSatsSent };

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
-import { updateUserRank } from "../handlers/donate.js";
+import { trackSatsSent } from "../handlers/donate.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
 import { zap } from "../handlers/zap.js";
@@ -76,7 +76,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return EphemeralMessageResponse(interaction, result.message);
     } else {
       try {
-        await updateUserRank(interaction.user.id, "comunidad", amount);
+        await trackSatsSent(interaction.user.id, amount);
 
         log(
           `@${user.username} paid the zap invoice to @${receiver.user.username}`,
