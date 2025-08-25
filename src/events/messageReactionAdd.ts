@@ -1,7 +1,7 @@
 import { MessageReaction, User } from "discord.js";
 import { zap } from "../handlers/zap.js";
 import { TimedMessage } from "../utils/helperFunctions.js";
-import { trackSatsSent } from "../handlers/donate.js";
+import { trackSatsSent } from "../handlers/ranking.js";
 import { log } from "../handlers/log.js";
 
 const once = false;

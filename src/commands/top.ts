@@ -1,6 +1,6 @@
 import dedent from "dedent-js";
 import { EmbedBuilder, SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
-import { getSumOfDonationAmounts, getTopRanking } from "../handlers/donate.js";
+import { getSumOfDonationAmounts, getTopRanking } from "../handlers/ranking.js";
 import { AuthorConfig } from "../utils/helperConfig.js";
 import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";

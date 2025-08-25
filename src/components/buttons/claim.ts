@@ -1,7 +1,7 @@
 import dedent from "dedent-js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ButtonInteraction, Message } from "discord.js";
 import { getBotServiceAccount, getAccount } from "../../handlers/accounts.js";
-import { trackSatsSent } from "../../handlers/donate.js";
+import { trackSatsSent } from "../../handlers/ranking.js";
 import {
   addClaimerOnFaucet,
   closeFaucet,

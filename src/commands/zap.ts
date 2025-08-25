@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
-import { trackSatsSent } from "../handlers/donate.js";
+import { trackSatsSent } from "../handlers/ranking.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
 import { zap } from "../handlers/zap.js";

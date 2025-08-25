@@ -6,6 +6,7 @@ services:
     restart: always
     depends_on:
       - mongo
+      - redis
     env_file:
       - .env
 
@@ -17,5 +18,15 @@ services:
     volumes:
       - mongo-data:/data/db
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis-server
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
 volumes:
   mongo-data:
+  redis-data:

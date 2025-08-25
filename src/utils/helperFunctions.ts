@@ -1,4 +1,4 @@
-import SimpleCache from "../handlers/SimpleCache.js";
+import redisCache from "../handlers/RedisCache.js";
 import { NWCClient } from "@getalby/sdk";
 import bolt11, { PaymentRequestObject, TagsObject } from 'bolt11';
 import { TextChannel, BaseInteraction } from "discord.js";
@@ -6,7 +6,7 @@ import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11
 import { formatter } from "./helperFormatter.js";
 import { BOT_CONFIG } from "./config.js";
 
-export const signupCache = new SimpleCache();
+export const signupCache = redisCache;
 
 export const validateNWCURI = (nwcUri: string): ValidationResult => {
   try {

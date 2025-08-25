@@ -9,7 +9,8 @@ BOT_TOKEN=YOUR_BOT_TOKEN_ID
 # MongoDB database connection URI
 MONGODB_URI=mongodb+srv://<username>:<password>@<url>/<dbname>
 
-
+# Redis connection URL (defaults to localhost:6379)
+REDIS_URL=redis://localhost:6379
 
 # Alby Hub configuration (REQUIRED for bot service account)
 ALBYHUB_URL=https://hub.getalby.com

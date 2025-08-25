@@ -3,22 +3,19 @@ import { encryptData, decryptData } from "../utils/crypto.js";
 import { NWCClient } from "@getalby/sdk";
 import { log } from "./log.js";
 import { validateNWCURI, testNWCConnection, requiredEnvVar } from "../utils/helperFunctions.js";
-import SimpleCache from "./SimpleCache.js";
+import redisCache from "./RedisCache.js";
 import { Interaction } from "discord.js";
 import { Account } from "../types/account.js";
 import { AccountResult, ServiceAccountResult } from "../types/index.js";
 
-const accountsCache = new SimpleCache();
+const accountsCache = redisCache;
 const SALT: string = process.env.SALT ?? "";
-
-// Remove SERVICE_NWC_URI dependency
-// const SERVICE_NWC_URI: string = process.env.SERVICE_NWC_URI ?? "";
 
 const connectAccount = async (discord_id: string, discord_username: string, nwc_uri: string): Promise<Account | null> => {
   try {
     const userAccount = await (AccountModel as any).findOne({ discord_id });
     if (userAccount) {
-      accountsCache.delete(`account:${discord_id}`);
+      await accountsCache.delete(`account:${discord_id}`);
       userAccount.nwc_uri = encryptData(nwc_uri, SALT);
       await userAccount.save();
 
@@ -67,7 +64,7 @@ const connectUserAccount = async (discord_id: string, discord_username: string, 
       log(`Created new account for @${discord_username} with user NWC URI`, "info");
     }
 
-    accountsCache.delete(`account:${discord_id}`);
+    await accountsCache.delete(`account:${discord_id}`);
 
     return {
       success: true
@@ -85,8 +82,22 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
   try {
     const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
     
-    const cachedAccount = accountsCache.get(`account:bot-service`) as ServiceAccountResult;
-    if (cachedAccount) return cachedAccount;
+    const cachedAccount = await accountsCache.get(`account:bot-service`) as ServiceAccountResult;
+    if (cachedAccount && cachedAccount.success) {
+      // Recreate the NWC client since it loses its methods when serialized
+      if (cachedAccount.accountInfo) {
+        const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
+        const botAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
+        if (botAccount && botAccount.bot_nwc_uri) {
+          const botNwcUri = decryptData(botAccount.bot_nwc_uri, SALT);
+          if (botNwcUri) {
+            const nwcClient = new NWCClient({ nostrWalletConnectUrl: botNwcUri });
+            cachedAccount.nwcClient = nwcClient;
+            return cachedAccount;
+          }
+        }
+      }
+    }
 
     log(`Getting bot service account`, "info");
 
@@ -142,7 +153,7 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
       }
     };
 
-    accountsCache.set(`account:bot-service`, createdAccount, 7200000);
+    await accountsCache.set(`account:bot-service`, createdAccount, 7200000);
     log(`Bot service account validated successfully - Balance: ${validationResult.balance} sats`, "info");
     
     return createdAccount;
@@ -199,19 +210,40 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
   try {
     const userData = await interaction.guild!.members.fetch(discord_id);
 
-    const cachedAccount = accountsCache.get(`account:${discord_id}`) as AccountResult;
+    const cachedAccount = await accountsCache.get(`account:${discord_id}`) as AccountResult;
     if (cachedAccount && cachedAccount.success) {
       try {
         log(`@${userData.user.username} - using cached account, updating balance`, "info");
         
-        const currentBalance = await cachedAccount.nwcClient!.getBalance();
-        const updatedBalance = Number(currentBalance.balance.toString()) / 1000;
+        // Recreate the NWC client since it loses its methods when serialized
+        if (cachedAccount.userAccount) {
+          if (cachedAccount.isServiceAccount && cachedAccount.userAccount.bot_nwc_uri) {
+            const botNwcUri = decryptData(cachedAccount.userAccount.bot_nwc_uri, SALT);
+            if (botNwcUri) {
+              const nwcClient = new NWCClient({ nostrWalletConnectUrl: botNwcUri });
+              cachedAccount.nwcClient = nwcClient;
+            }
+          } else if (!cachedAccount.isServiceAccount && cachedAccount.userAccount.nwc_uri) {
+            const nwcUri = decryptData(cachedAccount.userAccount.nwc_uri, SALT);
+            if (nwcUri) {
+              const nwcClient = new NWCClient({ nostrWalletConnectUrl: nwcUri });
+              cachedAccount.nwcClient = nwcClient;
+            }
+          }
+        }
         
-        cachedAccount.balance = updatedBalance;
-        
-        log(`@${userData.user.username} - balance updated: ${updatedBalance} sats`, "info");
-        
-        return cachedAccount;
+        if (cachedAccount.nwcClient && typeof cachedAccount.nwcClient.getBalance === 'function') {
+          const currentBalance = await cachedAccount.nwcClient.getBalance();
+          const updatedBalance = Number(currentBalance.balance.toString()) / 1000;
+          
+          cachedAccount.balance = updatedBalance;
+          
+          log(`@${userData.user.username} - balance updated: ${updatedBalance} sats`, "info");
+          
+          return cachedAccount;
+        } else {
+          log(`@${userData.user.username} - cached nwcClient is invalid, will recreate account`, "warn");
+        }
       } catch (balanceError: any) {
         log(`@${userData.user.username} - error updating cached balance: ${balanceError.message}`, "err");
       }
@@ -224,6 +256,12 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
       const serviceWalletResult = await createServiceWallet(discord_id, userData.user.username);
       if (serviceWalletResult.success) {
         return await getAccount(interaction, discord_id);
+      } else {
+        log(`@${userData.user.username} - failed to create bot service wallet, cannot provide account`, "err");
+        return {
+          success: false,
+          message: "❌ **Unable to create account.**\n\nPlease try again later or contact support."
+        };
       }
     }
 
@@ -240,8 +278,10 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
             isServiceAccount: false
           };
 
-          accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
+          await accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
           return createdAccount;
+        } else {
+          log(`@${userData.user.username} - user NWC connection failed, falling back to bot service account`, "info");
         }
       }
     }
@@ -261,22 +301,32 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
             isServiceAccount: true
           };
 
-          accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
+          await accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
           return createdAccount;
         }
       }
     }
-
-    if (interaction.user!.id === discord_id) {
-      return {
-        success: false,
-        message: "❌ **Your account connection is not working.**\n\nPlease use the `/connect` command to reconnect your wallet or try again later."
-      };
+    
+    log(`@${userData.user.username} - no working connections found, creating bot service wallet as fallback`, "info");
+    
+    const serviceWalletResult = await createServiceWallet(discord_id, userData.user.username);
+    if (serviceWalletResult.success) {
+      log(`@${userData.user.username} - bot service wallet created successfully as fallback`, "info");
+      return await getAccount(interaction, discord_id);
     } else {
-      return {
-        success: false,
-        message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to reconnect their wallet or try again later."
-      };
+      log(`@${userData.user.username} - failed to create bot service wallet as fallback`, "err");
+      
+      if (interaction.user!.id === discord_id) {
+        return {
+          success: false,
+          message: "❌ **Your account connection is not working and we couldn't create a backup account.**\n\nPlease use the `/connect` command to reconnect your wallet or try again later."
+        };
+      } else {
+        return {
+          success: false,
+          message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to reconnect their wallet or try again later."
+        };
+      }
     }
 
   } catch (err: any) {
@@ -353,7 +403,7 @@ const createServiceWallet = async (discord_id: string, discord_username: string)
         log(`Created new account for @${discord_username} with bot NWC URI`, "info");
       }
       
-      accountsCache.delete(`account:${discord_id}`);
+      await accountsCache.delete(`account:${discord_id}`);
       
       return {
         success: true,
@@ -397,7 +447,7 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
         log(`Deleting existing failed bot account and creating new one...`, "info");
         
         await (AccountModel as any).deleteOne({ discord_id: BOT_TOKEN });
-        accountsCache.delete(`account:bot-service`);
+        await accountsCache.delete(`account:bot-service`);
         
         const newServiceWalletResult = await createServiceWallet(BOT_TOKEN, "NWC Zap Bot Service");
         

@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { initializeBotAccount } from "./handlers/accounts.js";
+import redisCache from "./handlers/RedisCache.js";
 
 config();
 
@@ -30,6 +31,13 @@ client.components = new Collection();
 connect(mongoURI)
   .then(async () => {
     console.log("✅ Connected to MongoDB");
+
+    // Initialize Redis connection
+    try {
+      await redisCache.connect();
+    } catch (err) {
+      console.error("❌ Error connecting to Redis:", err);
+    }
 
     const botInitResult = await initializeBotAccount();
 
@@ -92,3 +100,16 @@ for (let folder of componentFolders) {
 }
 
 client.login(token);
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n🔄 Shutting down gracefully...');
+  await redisCache.disconnect();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🔄 Shutting down gracefully...');
+  await redisCache.disconnect();
+  process.exit(0);
+});
