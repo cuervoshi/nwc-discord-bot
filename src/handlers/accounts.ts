@@ -388,11 +388,49 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
         balance: botServiceResult.balance
       };
     } else {
-      log(`❌ Failed to initialize bot service account: ${botServiceResult.message}`, "err");
-      return {
-        success: false,
-        message: botServiceResult.message
-      };
+      log(`❌ Bot service account failed: ${botServiceResult.message}`, "err");
+      
+      const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
+      const existingBotAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
+      
+      if (existingBotAccount) {
+        log(`Deleting existing failed bot account and creating new one...`, "info");
+        
+        await (AccountModel as any).deleteOne({ discord_id: BOT_TOKEN });
+        accountsCache.delete(`account:bot-service`);
+        
+        const newServiceWalletResult = await createServiceWallet(BOT_TOKEN, "NWC Zap Bot Service");
+        
+        if (newServiceWalletResult.success) {
+          log(`✅ New bot service account created successfully`, "done");
+          
+          const newBotServiceResult = await getBotServiceAccount();
+          if (newBotServiceResult.success) {
+            log(`✅ New bot service account initialized successfully - Balance: ${newBotServiceResult.balance} sats`, "done");
+            return {
+              success: true,
+              balance: newBotServiceResult.balance
+            };
+          } else {
+            log(`❌ New bot service account still failing: ${newBotServiceResult.message}`, "err");
+            return {
+              success: false,
+              message: `❌ **Failed to initialize new bot service account:** ${newBotServiceResult.message}`
+            };
+          }
+        } else {
+          log(`❌ Failed to create new bot service wallet: ${newServiceWalletResult.error}`, "err");
+          return {
+            success: false,
+            message: `❌ **Failed to create new bot service account:** ${newServiceWalletResult.error}`
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: botServiceResult.message
+        };
+      }
     }
   } catch (err: any) {
     log(`Error initializing bot account: ${err.message}`, "err");
