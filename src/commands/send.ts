@@ -80,7 +80,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         invoice: invoice.invoice,
       });
       
-      if (!response) {
+      if (!response || !response.preimage) {
         throw new Error("Error paying the invoice");
       }
 

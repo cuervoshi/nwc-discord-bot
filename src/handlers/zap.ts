@@ -65,7 +65,7 @@ const zap = async (
       invoice: invoiceDetails.invoice,
     });
 
-    if (!response) throw new Error("Error processing the payment");
+    if (!response || !response.preimage) throw new Error("Error processing the payment");
 
     return { success: true, message: "Payment completed successfully" };
   } catch (err: any) {

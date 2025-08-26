@@ -137,9 +137,13 @@ const createFaucetWithMessage = async (
       throw new Error("Could not get user account");
     }
 
-    const paymentResult = await userAccount.nwcClient.payInvoice({
+    const { preimage } = await userAccount.nwcClient.payInvoice({
       invoice: invoice.invoice,
     });
+
+    if (!preimage) {
+      throw new Error("Could not pay invoice");
+    }
 
     log(`@${interaction.user.username} paid ${totalCost} sats to the service account`, "info");
 

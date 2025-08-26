@@ -15,6 +15,7 @@ import {
   FollowUpEphemeralResponse
 } from "../../utils/helperFunctions.js";
 import { Faucet } from "types/faucet.js";
+import { NWCClient } from "@getalby/sdk";
 
 interface QueueItem {
   operation: 'claim' | 'close';
@@ -33,16 +34,11 @@ interface BalanceResponse {
 interface AccountResult {
   success: boolean;
   message?: string;
-  nwcClient?: {
-    makeInvoice: (params: { amount: number; description: string }) => Promise<InvoiceDetails>;
-    getBalance: () => Promise<BalanceResponse>;
-  };
+  nwcClient?: NWCClient;
 }
 
 interface ServiceAccountResult {
-  nwcClient?: {
-    payInvoice: (params: { invoice: string }) => Promise<any>;
-  };
+  nwcClient?: NWCClient;
 }
 
 const customId = "claim";

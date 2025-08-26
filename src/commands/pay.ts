@@ -78,6 +78,10 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         invoice: paymentRequest,
       });
 
+      if (!response || !response.preimage) {
+        throw new Error("Error paying invoice");
+      }
+
       log(`@${user.username} paid successfully: ${JSON.stringify(response, null, 2)}`, "info");
 
       const successEmbed = new EmbedBuilder()
