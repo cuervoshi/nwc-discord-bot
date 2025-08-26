@@ -38,47 +38,6 @@ const connectAccount = async (discord_id: string, discord_username: string, nwc_
   }
 };
 
-const connectUserAccount = async (discord_id: string, discord_username: string, nwc_uri: string): Promise<{ success: boolean; message?: string }> => {
-  try {
-    const validationResult = await validateAccount(nwc_uri, discord_username);
-    if (!validationResult.success) {
-      return {
-        success: false,
-        message: validationResult.message
-      };
-    }
-
-    const userAccount = await (AccountModel as any).findOne({ discord_id });
-    if (userAccount) {
-      userAccount.nwc_uri = encryptData(nwc_uri, SALT);
-      userAccount.discord_username = discord_username;
-      await userAccount.save();
-      log(`Updated existing account for @${discord_username} with user NWC URI`, "info");
-    } else {
-      const newAccount = new AccountModel({
-        discord_id,
-        discord_username,
-        nwc_uri: encryptData(nwc_uri, SALT),
-        bot_nwc_uri: ""
-      });
-      await newAccount.save();
-      log(`Created new account for @${discord_username} with user NWC URI`, "info");
-    }
-
-    await accountsCache.delete(`account:${discord_id}`);
-
-    return {
-      success: true
-    };
-  } catch (err: any) {
-    log(`Error connecting user account for @${discord_username}: ${err.message}`, "err");
-    return {
-      success: false,
-      message: "❌ **Error saving your account connection.**"
-    };
-  }
-};
-
 const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
   try {
     const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
@@ -115,10 +74,7 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
           success: false,
           message: `❌ **Failed to create bot service account:** ${serviceWalletResult.error}`
         };
-      }
-      
-      botAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
-      if (!botAccount) {
+      } else {
         return {
           success: false,
           message: "❌ **Bot service account creation failed**"
@@ -621,4 +577,4 @@ const transferBotFundsToUser = async (discord_id: string): Promise<{ success: bo
   }
 };
 
-export { connectAccount, connectUserAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser };
+export { connectAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser };
