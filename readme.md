@@ -1,5 +1,11 @@
 # Discord.js v14 - NWC Zap Bot
 
+A Discord bot that allows users to connect Lightning Network wallets through Nostr Wallet Connect (NWC) and send/receive satoshis. If you don't have a Lightning account, the bot automatically creates one associated with your Discord user using AlbyHub as the backend.
+
+**Fee Structure:** The bot charges 1 sat or 0.5% commission on all transfers made with accounts created by the bot.
+
+## Setup
+
 Rename .env.example to .env and replace your enviroment vars:
 
 ```env
