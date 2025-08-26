@@ -30,9 +30,13 @@ SALT=123456789
 
 You can customize the bot's behavior by editing `src/utils/config.ts`:
 
-- **SERVICE_ACCOUNT_COMMISSION**: Commission rate for service accounts (default: 0.005 = 0.5%)
-- **ROUTING_FEE_PERCENTAGE**: Routing fee percentage (default: 0.005 = 0.5%)
-- **MIN_ROUTING_FEE_RESERVE**: Minimum sats reserved for routing fees (default: 10)
+```jsonc
+{
+  "SERVICE_ACCOUNT_COMMISSION": 0.005, //Commission rate for service accounts (default: 0.005 = 0.5%)
+  "ROUTING_FEE_PERCENTAGE": 0.005, //Percentage reserved for routing fee (default: 0.005 = 0.5%)
+  "MIN_ROUTING_FEE_RESERVE": 10 //Minimum sats reserved for routing fees (default: 10)
+}
+```
 
 # Start bot
 
