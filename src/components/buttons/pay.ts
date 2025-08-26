@@ -2,15 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonInteraction } from "discord.js";
 import { getAccount } from "../../handlers/accounts.js";
 import { log } from "../../handlers/log.js";
 import { FollowUpEphemeralResponse, handleInvoicePayment } from "../../utils/helperFunctions.js";
-import { NWCClient } from "@getalby/sdk";
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  balance?: number;
-  nwcClient?: NWCClient;
-  isServiceAccount?: boolean;
-}
+import { AccountResult } from "../../types/index.js";
 
 const customId = "pay";
 

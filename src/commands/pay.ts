@@ -47,7 +47,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return;
     }
 
-    const { amount, description, decoded } = bolt11Validation;
+    const { amount, decoded } = bolt11Validation;
 
     if (!decoded || isBOLT11Expired(decoded)) {
       log(`@${user.username} - Expired BOLT11`, "err");

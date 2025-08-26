@@ -98,7 +98,7 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     const paymentResult = await handleInvoicePayment(
       faucetWallet.nwcClient,
       invoiceDetails.invoice,
-      true, // Es una cuenta del bot
+      true,
       interaction.user.username
     );
 

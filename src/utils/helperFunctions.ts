@@ -299,19 +299,17 @@ export const handleInvoicePayment = async (
   }
 };
 
-// Función para formatear mensajes de balance con el estilo del bot
 const formatBalanceMessage = (balance: number, additionalInfo?: string): any => {
   const formattedBalance = balance.toLocaleString();
 
   const embed = {
-    color: 0x2f3136, // Color gris oscuro como en la imagen
+    color: 0x2f3136,
     description: `🔧 **Your Account Information**\n\n**Balance**\n**${formattedBalance} satoshis**${additionalInfo ? `\n\n${additionalInfo}` : ''}`,
   };
 
   return { embeds: [embed] };
 };
 
-// Función para formatear mensajes de error con el estilo del bot
 const formatErrorMessage = (title: string, content: string): any => {
   const embed = {
     color: 0xed4245, // Color rojo para errores
@@ -321,7 +319,6 @@ const formatErrorMessage = (title: string, content: string): any => {
   return { embeds: [embed] };
 };
 
-// Función para formatear mensajes de éxito con el estilo del bot
 const formatSuccessMessage = (title: string, content: string): any => {
   const embed = {
     color: 0x57f287, // Color verde para éxito
