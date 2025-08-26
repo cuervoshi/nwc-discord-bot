@@ -4,7 +4,8 @@ import {
   EphemeralMessageResponse,
   validateAndDecodeBOLT11,
   validateAmountAndBalance,
-  isBOLT11Expired
+  isBOLT11Expired,
+  handleInvoicePayment
 } from "../utils/helperFunctions.js";
 import { log } from "../handlers/log.js";
 import { BOLT11ValidationResult, BalanceValidationResult, AccountResult } from "../types/index.js";
@@ -74,15 +75,18 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     }
 
     try {
-      const response = await nwcClient.payInvoice({
-        invoice: paymentRequest,
-      });
+      const paymentResult = await handleInvoicePayment(
+        nwcClient,
+        paymentRequest,
+        accountResult.isServiceAccount || false,
+        user.username
+      );
 
-      if (!response || !response.preimage) {
-        throw new Error("Error paying invoice");
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || "Error paying invoice");
       }
 
-      log(`@${user.username} paid successfully: ${JSON.stringify(response, null, 2)}`, "info");
+      log(`@${user.username} paid successfully: ${JSON.stringify(paymentResult, null, 2)}`, "info");
 
       const successEmbed = new EmbedBuilder()
         .setAuthor({

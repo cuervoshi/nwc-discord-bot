@@ -2,7 +2,7 @@ import AccountModel from "../schemas/AccountSchema.js";
 import { encryptData, decryptData } from "../utils/crypto.js";
 import { NWCClient } from "@getalby/sdk";
 import { log } from "./log.js";
-import { validateNWCURI, testNWCConnection, requiredEnvVar } from "../utils/helperFunctions.js";
+import { validateNWCURI, testNWCConnection, requiredEnvVar, handleInvoicePayment } from "../utils/helperFunctions.js";
 import redisCache from "./RedisCache.js";
 import { Interaction } from "discord.js";
 import { Account } from "../types/account.js";
@@ -549,14 +549,17 @@ const transferBotFundsToUser = async (discord_id: string): Promise<{ success: bo
     }
 
     const botNwcClient = new NWCClient({ nostrWalletConnectUrl: botNwcUri });
-    const paymentResponse = await botNwcClient.payInvoice({
-      invoice: invoiceResponse.invoice
-    });
+    const paymentResult = await handleInvoicePayment(
+      botNwcClient,
+      invoiceResponse.invoice,
+      true,
+      userAccount.discord_username
+    );
 
-    if (!paymentResponse || !paymentResponse.preimage) {
+    if (!paymentResult.success) {
       return {
         success: false,
-        message: "❌ **Failed to transfer funds from bot account.**"
+        message: `❌ **Failed to transfer funds from bot account:** ${paymentResult.error}`
       };
     }
 

@@ -3,6 +3,7 @@ import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
   validateAmountAndBalance,
+  handleInvoicePayment,
 } from "../utils/helperFunctions.js";
 import lnurl from "lnurl-pay";
 import { log } from "../handlers/log.js";
@@ -76,12 +77,15 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         "info"
       );
 
-      const response = await wallet.nwcClient.payInvoice({
-        invoice: invoice.invoice,
-      });
+      const paymentResult = await handleInvoicePayment(
+        wallet.nwcClient,
+        invoice.invoice,
+        wallet.isServiceAccount || false,
+        user.username
+      );
       
-      if (!response || !response.preimage) {
-        throw new Error("Error paying the invoice");
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || "Error paying the invoice");
       }
 
       log(

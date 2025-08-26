@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction } from "discord.js";
 import { getAccount } from "../../handlers/accounts.js";
 import { log } from "../../handlers/log.js";
-import { FollowUpEphemeralResponse } from "../../utils/helperFunctions.js";
+import { FollowUpEphemeralResponse, handleInvoicePayment } from "../../utils/helperFunctions.js";
 import { NWCClient } from "@getalby/sdk";
 
 interface AccountResult {
@@ -9,6 +9,7 @@ interface AccountResult {
   message?: string;
   balance?: number;
   nwcClient?: NWCClient;
+  isServiceAccount?: boolean;
 }
 
 const customId = "pay";
@@ -39,11 +40,16 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
           `You don't have enough balance to pay this invoice. \nYour balance: ${satsBalance} - Required: ${amountOnSats.value}`
         );
       } else {
-        const response = await userWallet.nwcClient.payInvoice({
-          invoice: payUrl.value,
-        });
+        const paymentResult = await handleInvoicePayment(
+          userWallet.nwcClient,
+          payUrl.value,
+          userWallet.isServiceAccount || false,
+          interaction.user.username
+        );
 
-        if (!response) throw new Error("Error paying invoice");
+        if (!paymentResult.success) {
+          throw new Error(paymentResult.error || "Error paying invoice");
+        }
 
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents([
           new ButtonBuilder()

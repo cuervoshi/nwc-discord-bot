@@ -12,7 +12,8 @@ import { SimpleLock } from "../../handlers/SimpleLock.js";
 import { AuthorConfig } from "../../utils/helperConfig.js";
 import {
   EphemeralMessageResponse,
-  FollowUpEphemeralResponse
+  FollowUpEphemeralResponse,
+  handleInvoicePayment
 } from "../../utils/helperFunctions.js";
 import { Faucet } from "types/faucet.js";
 import { NWCClient } from "@getalby/sdk";
@@ -35,6 +36,7 @@ interface AccountResult {
   success: boolean;
   message?: string;
   nwcClient?: NWCClient;
+  isServiceAccount?: boolean;
 }
 
 interface ServiceAccountResult {
@@ -93,11 +95,16 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
       description: `LNBot: Faucet claim`
     });
 
-    const response = await faucetWallet.nwcClient.payInvoice({
-      invoice: invoiceDetails.invoice,
-    });
+    const paymentResult = await handleInvoicePayment(
+      faucetWallet.nwcClient,
+      invoiceDetails.invoice,
+      true, // Es una cuenta del bot
+      interaction.user.username
+    );
 
-    if (!response) throw new Error("Error claiming faucet");
+    if (!paymentResult.success) {
+      throw new Error(paymentResult.error || "Error claiming faucet");
+    }
 
     const content: string = interaction.message.embeds[0].fields[0].value;
     const subStr: number = content.indexOf(">");
@@ -148,11 +155,16 @@ const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Prom
         });
 
         if (invoiceDetails && invoiceDetails.invoice) {
-          const response = await faucetWallet.nwcClient.payInvoice({
-            invoice: invoiceDetails.invoice,
-          });
+          const paymentResult = await handleInvoicePayment(
+            faucetWallet.nwcClient,
+            invoiceDetails.invoice,
+            true,
+            user.username
+          );
 
-          if (!response) throw new Error("Error refunding funds");
+          if (!paymentResult.success) {
+            throw new Error(paymentResult.error || "Error refunding funds");
+          }
 
           log(`${user.username} closed faucet ${faucetId} and was refunded ${unclaimedAmount} sats`, "done");
 

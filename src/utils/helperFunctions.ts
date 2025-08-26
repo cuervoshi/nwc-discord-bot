@@ -5,6 +5,7 @@ import { TextChannel, BaseInteraction } from "discord.js";
 import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11ValidationResult } from "../types/index.js";
 import { formatter } from "./helperFormatter.js";
 import { BOT_CONFIG } from "./config.js";
+import { getBotServiceAccount } from "../handlers/accounts.js";
 
 export const signupCache = redisCache;
 
@@ -24,7 +25,7 @@ export const validateNWCURI = (nwcUri: string): ValidationResult => {
     }
 
     const [pubkey, params] = uriParts;
-    
+
     if (!/^[0-9a-fA-F]{64}$/.test(pubkey)) {
       return { valid: false, error: 'Invalid public key' };
     }
@@ -61,12 +62,12 @@ export const testNWCConnection = async (nwcUri: string): Promise<ConnectionTestR
     });
 
     const response = await nwc.getBalance();
-    
+
     return { valid: true, balance: Number(response.balance.toString()) / 1000 };
   } catch (error: any) {
-    return { 
-      valid: false, 
-      error: `Connection error: ${error.message}` 
+    return {
+      valid: false,
+      error: `Connection error: ${error.message}`
     };
   }
 };
@@ -89,7 +90,7 @@ const validateAmountAndBalance = (amount: number, balance: number): BalanceValid
   if (amount > balance)
     return {
       status: false,
-      content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${formatter(0,0).format(balance)}`,
+      content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${formatter(0, 0).format(balance)}`,
     };
 
   const minReserve = BOT_CONFIG.MIN_ROUTING_FEE_RESERVE;
@@ -99,16 +100,16 @@ const validateAmountAndBalance = (amount: number, balance: number): BalanceValid
   if (balance < totalReserve) {
     return {
       status: false,
-      content: `You don't have enough balance to perform this action.\n You need to keep a reserve of ${formatter(0,0).format(totalReserve)} sats for potential routing fees.`,
+      content: `You don't have enough balance to perform this action.\n You need to keep a reserve of ${formatter(0, 0).format(totalReserve)} sats for potential routing fees.`,
     };
   }
 
   const maxSendableAmount = Math.floor(balance - totalReserve);
-  
+
   if (amount > maxSendableAmount) {
     return {
       status: false,
-      content: `Your balance is ${formatter(0,0).format(balance)} sats, but you cannot send more than ${maxSendableAmount} sats. You need to keep a reserve of ${totalReserve} sats for potential routing fees.`,
+      content: `Your balance is ${formatter(0, 0).format(balance)} sats, but you cannot send more than ${maxSendableAmount} sats. You need to keep a reserve of ${totalReserve} sats for potential routing fees.`,
     };
   }
 
@@ -174,7 +175,7 @@ export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationR
     }
 
     const decoded: PaymentRequestObject & { tagsObject: TagsObject } = bolt11.decode(bolt11String);
-    
+
     if (!decoded) {
       return { valid: false, error: 'Could not decode the BOLT11' };
     }
@@ -197,9 +198,9 @@ export const validateAndDecodeBOLT11 = (bolt11String: string): BOLT11ValidationR
     };
 
   } catch (error: any) {
-    return { 
-      valid: false, 
-      error: `Error decoding BOLT11: ${error.message}` 
+    return {
+      valid: false,
+      error: `Error decoding BOLT11: ${error.message}`
     };
   }
 };
@@ -211,19 +212,102 @@ export const isBOLT11Expired = (decodedBOLT11: BOLT11ValidationResult['decoded']
 
   const currentTime = Math.floor(Date.now() / 1000);
   const expiryTime = decodedBOLT11.timestamp + decodedBOLT11.timeExpireDate;
-  
+
   return currentTime > expiryTime;
+};
+
+export const handleInvoicePayment = async (
+  nwcClient: NWCClient,
+  invoice: string,
+  isServiceAccount: boolean,
+  username?: string
+): Promise<{ success: boolean; preimage?: string; fees_paid?: number; error?: string }> => {
+  try {
+    if (!isServiceAccount) {
+      const response = await nwcClient.payInvoice({
+        invoice: invoice,
+      });
+
+      if (!response || !response.preimage) {
+        return { success: false, error: "Error paying invoice" };
+      }
+
+      return {
+        success: true,
+        preimage: response.preimage,
+        fees_paid: response.fees_paid ? Number(response.fees_paid.toString()) / 1000 : 0
+      };
+    }
+
+    const decoded = bolt11.decode(invoice);
+    const invoiceAmount = decoded.satoshis || Math.floor(Number(decoded.millisatoshis) / 1000);
+
+    const commissionAmount = Math.ceil(invoiceAmount * 0.005);
+    const paymentResponse = await nwcClient.payInvoice({
+      invoice: invoice,
+    });
+
+    if (!paymentResponse || !paymentResponse.preimage) {
+      return { success: false, error: "Error paying invoice" };
+    }
+
+    const feesPaid = paymentResponse.fees_paid ? Number(paymentResponse.fees_paid.toString()) / 1000 : 0;
+    const additionalCommission = Math.max(1, Math.floor(commissionAmount - feesPaid));
+
+    try {
+      const botServiceAccount = await getBotServiceAccount();
+      if (!botServiceAccount.success || !botServiceAccount.nwcClient) {
+        console.log("Warning: Could not get bot service account for commission payment");
+        return {
+          success: true,
+          preimage: paymentResponse.preimage,
+          fees_paid: feesPaid
+        };
+      }
+
+              const commissionInvoice = await botServiceAccount.nwcClient.makeInvoice({
+          amount: additionalCommission * 1000,
+          description: `Commission payment for ${invoiceAmount} sats transfer${username ? ` from ${username}` : ''}`,
+        });
+
+      if (commissionInvoice && commissionInvoice.invoice) {
+        const commissionPayment = await nwcClient.payInvoice({
+          invoice: commissionInvoice.invoice,
+        });
+
+        if (commissionPayment && commissionPayment.preimage) {
+          console.log(`Commission payment successful: ${additionalCommission} sats`);
+        } else {
+          console.log("Warning: Commission payment failed, but main payment was successful");
+        }
+      }
+    } catch (commissionError: any) {
+      console.log(`Warning: Commission payment error: ${commissionError.message}`);
+    }
+
+    return {
+      success: true,
+      preimage: paymentResponse.preimage,
+      fees_paid: feesPaid
+    };
+
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Unknown error occurred"
+    };
+  }
 };
 
 // Función para formatear mensajes de balance con el estilo del bot
 const formatBalanceMessage = (balance: number, additionalInfo?: string): any => {
   const formattedBalance = balance.toLocaleString();
-  
+
   const embed = {
     color: 0x2f3136, // Color gris oscuro como en la imagen
     description: `🔧 **Your Account Information**\n\n**Balance**\n**${formattedBalance} satoshis**${additionalInfo ? `\n\n${additionalInfo}` : ''}`,
   };
-  
+
   return { embeds: [embed] };
 };
 
@@ -233,7 +317,7 @@ const formatErrorMessage = (title: string, content: string): any => {
     color: 0xed4245, // Color rojo para errores
     description: `❌ **${title}**\n\n${content}`,
   };
-  
+
   return { embeds: [embed] };
 };
 
@@ -243,7 +327,7 @@ const formatSuccessMessage = (title: string, content: string): any => {
     color: 0x57f287, // Color verde para éxito
     description: `✅ **${title}**\n\n${content}`,
   };
-  
+
   return { embeds: [embed] };
 };
 

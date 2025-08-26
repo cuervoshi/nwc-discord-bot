@@ -1,28 +1,10 @@
 import { log } from "../../handlers/log.js";
-import { validateAmountAndBalance, formatErrorMessage, formatSuccessMessage } from "../../utils/helperFunctions.js";
+import { validateAmountAndBalance, formatErrorMessage, formatSuccessMessage, handleInvoicePayment } from "../../utils/helperFunctions.js";
 import { getAccount, getBotServiceAccount } from "../../handlers/accounts.js";
 import { FAUCET_CONFIG, BOT_CONFIG } from "../../utils/config.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ModalSubmitInteraction } from "discord.js";
-import { NWCClient } from "@getalby/sdk";
-
-interface AccountResult {
-  success: boolean;
-  message?: string;
-  balance?: number;
-  nwcClient?: NWCClient;
-}
-
-interface ServiceAccountResult {
-  success: boolean;
-  message?: string;
-  nwcClient?: NWCClient;
-}
-
-interface BalanceValidationResult {
-  status: boolean;
-  content: string;
-}
+import { AccountResult, ServiceAccountResult, BalanceValidationResult } from "../../types/index.js";
 
 const customId = "faucet_modal";
 
@@ -137,12 +119,15 @@ const createFaucetWithMessage = async (
       throw new Error("Could not get user account");
     }
 
-    const { preimage } = await userAccount.nwcClient.payInvoice({
-      invoice: invoice.invoice,
-    });
+    const paymentResult = await handleInvoicePayment(
+      userAccount.nwcClient,
+      invoice.invoice,
+      userAccount.isServiceAccount || false,
+      interaction.user.username
+    );
 
-    if (!preimage) {
-      throw new Error("Could not pay invoice");
+    if (!paymentResult.success) {
+      throw new Error(paymentResult.error || "Could not pay invoice");
     }
 
     log(`@${interaction.user.username} paid ${totalCost} sats to the service account`, "info");

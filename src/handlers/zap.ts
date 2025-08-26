@@ -1,6 +1,6 @@
 import { getAccount } from "../handlers/accounts.js";
 import { log } from "../handlers/log.js";
-import { validateAmountAndBalance } from "../utils/helperFunctions.js";
+import { validateAmountAndBalance, handleInvoicePayment } from "../utils/helperFunctions.js";
 import { Interaction, User } from "discord.js";
 import { ZapResult, BalanceValidationResult } from "../types/index.js";
 
@@ -61,11 +61,16 @@ const zap = async (
       "info"
     );
 
-    const response = await senderWallet.nwcClient!.payInvoice({
-      invoice: invoiceDetails.invoice,
-    });
+    const paymentResult = await handleInvoicePayment(
+      senderWallet.nwcClient!,
+      invoiceDetails.invoice,
+      senderWallet.isServiceAccount || false,
+      sender.username
+    );
 
-    if (!response || !response.preimage) throw new Error("Error processing the payment");
+    if (!paymentResult.success) {
+      throw new Error(paymentResult.error || "Error processing the payment");
+    }
 
     return { success: true, message: "Payment completed successfully" };
   } catch (err: any) {
