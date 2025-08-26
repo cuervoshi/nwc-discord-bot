@@ -33,7 +33,7 @@ You can customize the bot's behavior by editing `src/utils/config.ts`:
 ```jsonc
 {
   "SERVICE_ACCOUNT_COMMISSION": 0.005, //Commission rate for service accounts (default: 0.005 = 0.5%)
-  "ROUTING_FEE_PERCENTAGE": 0.005, //Percentage reserved for routing fee (default: 0.005 = 0.5%)
+  "ROUTING_FEE_PERCENTAGE": 0.005, //Percentage of transaction amount reserved for routing fee (default: 0.005 = 0.5%)
   "MIN_ROUTING_FEE_RESERVE": 10 //Minimum sats reserved for routing fees (default: 10)
 }
 ```
