@@ -242,7 +242,7 @@ export const handleInvoicePayment = async (
     const decoded = bolt11.decode(invoice);
     const invoiceAmount = decoded.satoshis || Math.floor(Number(decoded.millisatoshis) / 1000);
 
-    const commissionAmount = Math.ceil(invoiceAmount * 0.005);
+    const commissionAmount = Math.ceil(invoiceAmount * BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION);
     const paymentResponse = await nwcClient.payInvoice({
       invoice: invoice,
     });
@@ -312,7 +312,7 @@ const formatBalanceMessage = (balance: number, additionalInfo?: string): any => 
 
 const formatErrorMessage = (title: string, content: string): any => {
   const embed = {
-    color: 0xed4245, // Color rojo para errores
+    color: 0xed4245,
     description: `❌ **${title}**\n\n${content}`,
   };
 
@@ -321,7 +321,7 @@ const formatErrorMessage = (title: string, content: string): any => {
 
 const formatSuccessMessage = (title: string, content: string): any => {
   const embed = {
-    color: 0x57f287, // Color verde para éxito
+    color: 0x57f287,
     description: `✅ **${title}**\n\n${content}`,
   };
 

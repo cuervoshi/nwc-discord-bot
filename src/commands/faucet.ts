@@ -11,7 +11,7 @@ import {
 } from "../utils/helperFunctions.js";
 import { log } from "../handlers/log.js";
 import { AccountResult } from "../types/index.js";
-import { FAUCET_CONFIG } from "#utils/config";
+import { FAUCET_CONFIG, BOT_CONFIG } from "#utils/config";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -47,7 +47,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         .setDescription(
           `❌ **You don't have enough balance to create a faucet.**\n\n` +
           `💰 **Your current balance:** ${balance.toLocaleString()} satoshis\n` +
-          `💳 **Maximum available for use:** ${Math.floor(balance * 0.995).toLocaleString()} satoshis (0.5% reserved for routing fees)\n` +
+          `💳 **Maximum available for use:** ${Math.floor(balance * (1 - BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION)).toLocaleString()} satoshis (${(BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION * 100).toFixed(1)}% reserved for routing fees)\n` +
           `🎁 **Minimum to gift:** 1 satoshi\n` +
           `📊 **Total minimum needed:** ${FAUCET_CONFIG.MINIMUM_BALANCE} satoshis\n\n` +
           `**You need at least ${FAUCET_CONFIG.MINIMUM_BALANCE - balance} more satoshis to create a faucet.**\n\n` +
@@ -77,7 +77,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         `**Example:** If you select 100 sats for 10 people, each person who claims will receive 10 sats.\n\n` +
         
         `**Your current balance:** ${balance.toLocaleString()} satoshis\n` +
-        `**Maximum available for use:** ${Math.floor(balance * 0.995).toLocaleString()} satoshis (0.5% reserved for routing fees)\n\n`);
+        `**Maximum available for use:** ${Math.floor(balance * (1 - BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION)).toLocaleString()} satoshis (${(BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION * 100).toFixed(1)}% reserved for routing fees)\n\n`);
       
     await interaction.editReply({
       embeds: [embed],

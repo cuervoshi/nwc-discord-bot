@@ -2,7 +2,7 @@
 export const BOT_CONFIG = {
   ROUTING_FEE_PERCENTAGE: 0.005,
   MIN_ROUTING_FEE_RESERVE: 10,
-  SERVICE_ACCOUNT_COMMISSION: 0.001,
+  SERVICE_ACCOUNT_COMMISSION: 0.005, //Use 0.00 - 1.00 for the commission percentage (0.005 = 0.5%)
 } as const;
 
 // Faucet-specific configuration

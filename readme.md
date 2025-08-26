@@ -2,7 +2,7 @@
 
 A Discord bot that allows users to connect Lightning Network wallets through Nostr Wallet Connect (NWC) and send/receive satoshis. If you don't have a Lightning account, the bot automatically creates one associated with your Discord user using AlbyHub as the backend.
 
-**Fee Structure:** The bot charges 1 sat or 0.5% commission on all transfers made with accounts created by the bot.
+**Fee Structure:** The bot charges a configurable commission (default: 0.5%) on all transfers made with accounts created by the bot. This can be adjusted in the configuration.
 
 ## Setup
 
@@ -25,6 +25,14 @@ ALBYHUB_TOKEN=your_alby_hub_api_token
 # Salt for encrypting the nwc_uri
 SALT=123456789
 ```
+
+## Configuration
+
+You can customize the bot's behavior by editing `src/utils/config.ts`:
+
+- **SERVICE_ACCOUNT_COMMISSION**: Commission rate for service accounts (default: 0.005 = 0.5%)
+- **ROUTING_FEE_PERCENTAGE**: Routing fee percentage (default: 0.005 = 0.5%)
+- **MIN_ROUTING_FEE_RESERVE**: Minimum sats reserved for routing fees (default: 10)
 
 # Start bot
 

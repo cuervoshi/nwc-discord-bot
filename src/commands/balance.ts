@@ -11,6 +11,7 @@ import { formatter } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
 import { AccountResult } from "../types/index.js";
+import { BOT_CONFIG } from "#utils/config";
 
 interface BalanceResponse {
   balance: number;
@@ -69,7 +70,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       embed.addFields([
         {
           name: "⚠️ Service Account Notice",
-          value: "You're using a custodial wallet created by the bot. A 0.5% fee applies to all transfers. Use `/connect` to link your own wallet and avoid fees.",
+          value: `You're using a custodial wallet created by the bot. A ${(BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION * 100).toFixed(1)}% fee applies to all transfers. Use \`/connect\` to link your own wallet and avoid fees.`,
           inline: false
         }
       ]);
