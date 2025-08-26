@@ -58,5 +58,6 @@ docker-compose up --build
 /top: Returns the TOP 10 ranking of users who sent sats through the bot
 /zap user: <user> amount: <integer> message: <string>: Send sats to a user in discord
 /connect nwc_uri: <string>: Connect your wallet through Nostr Wallet Connect
+/disconnect: Disconnect your wallet from the bot
 /help: Get help about commands
 ```

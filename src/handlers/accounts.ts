@@ -580,4 +580,45 @@ const transferBotFundsToUser = async (discord_id: string): Promise<{ success: bo
   }
 };
 
-export { connectAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser };
+const disconnectAccount = async (discord_id: string): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const userAccount = await (AccountModel as any).findOne({ discord_id });
+    
+    if (!userAccount) {
+      return {
+        success: false,
+        message: "❌ **No account found to disconnect.**"
+      };
+    }
+
+    if (!userAccount.nwc_uri || userAccount.nwc_uri.trim() === "") {
+      return {
+        success: false,
+        message: "❌ **You don't have a connected wallet to disconnect.**\n\nYou can use `/connect` to connect a wallet first."
+      };
+    }
+
+    // Remove user's NWC connection from database
+    userAccount.nwc_uri = "";
+    await userAccount.save();
+    
+    // Clear account from cache
+    await accountsCache.delete(`account:${discord_id}`);
+    
+    log(`Successfully disconnected NWC account for user ${discord_id}`, "info");
+    
+    return {
+      success: true,
+      message: "✅ **Your wallet has been disconnected successfully.**\n\nYou can now use `/connect` to connect a new wallet, or the bot will use your service account for transactions."
+    };
+    
+  } catch (err: any) {
+    log(`Error disconnecting account for user ${discord_id}: ${err.message}`, "err");
+    return {
+      success: false,
+      message: `❌ **Failed to disconnect account:** ${err.message}`
+    };
+  }
+};
+
+export { connectAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser, disconnectAccount };
