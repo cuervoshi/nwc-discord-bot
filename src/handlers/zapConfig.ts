@@ -24,24 +24,12 @@ export const updateZapConfiguration = async (
     }
 
     // Update the database
-    const updatedAccount = await prisma.account.update({
+    await prisma.account.update({
       where: { discord_id: discordId },
       data: updateData
     });
 
-    // Update cache with new values
-    const cacheKey = `account:${discordId}`;
-    const existingCache = await redisCache.get(cacheKey);
-    
-    if (existingCache && typeof existingCache === 'object') {
-      const updatedCache = {
-        ...existingCache as Record<string, any>,
-        zapReaction_enabled: updatedAccount.zapReaction_enabled,
-        zapReaction_amount: updatedAccount.zapReaction_amount
-      };
-      await redisCache.set(cacheKey, updatedCache, 5 * 60 * 1000);
-    }
-
+    redisCache.delete(`account:${discordId}`);
     log(`Zap configuration updated for user ${discordId}: ${JSON.stringify(updates)}`, "info");
 
     return { success: true };
