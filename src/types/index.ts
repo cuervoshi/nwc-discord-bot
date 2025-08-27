@@ -9,21 +9,27 @@ export type {
   Account, 
   Faucet, 
   Rank,
+  ZapLog,
   AccountWithRelations,
   FaucetWithRelations,
   RankWithRelations,
+  ZapLogWithRelations,
   AccountCreateInput,
   FaucetCreateInput,
   RankCreateInput,
+  ZapLogCreateInput,
   AccountUpdateInput,
   FaucetUpdateInput,
   RankUpdateInput,
+  ZapLogUpdateInput,
   AccountQueryResult,
   FaucetQueryResult,
   RankQueryResult,
+  ZapLogQueryResult,
   AccountListResult,
   FaucetListResult,
-  RankListResult
+  RankListResult,
+  ZapLogListResult
 } from "./prisma.js";
 
 export interface Command {

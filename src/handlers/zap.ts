@@ -3,6 +3,7 @@ import { log } from "../handlers/log.js";
 import { validateAmountAndBalance, handleInvoicePayment } from "../utils/helperFunctions.js";
 import { Interaction, User } from "discord.js";
 import { ZapResult, BalanceValidationResult } from "../types/index.js";
+import { PrismaConfig } from "../utils/prisma.js";
 
 const zap = async (
   interaction: Interaction,
@@ -21,7 +22,7 @@ const zap = async (
       interaction,
       receiver.id
     );
-    
+
     if (!senderWallet.success) {
       return {
         success: false,
@@ -51,9 +52,9 @@ const zap = async (
     if (!isValidAmount.status)
       return { success: false, message: isValidAmount.content };
 
-    const invoiceDetails = await receiverWallet.nwcClient!.makeInvoice({ 
-      amount: amount * 1000, 
-      description: zapMessage 
+    const invoiceDetails = await receiverWallet.nwcClient!.makeInvoice({
+      amount: amount * 1000,
+      description: zapMessage
     });
 
     log(
@@ -70,6 +71,23 @@ const zap = async (
 
     if (!paymentResult.success) {
       throw new Error(paymentResult.error || "Error processing the payment");
+    }
+
+    // Log the zap transaction to database
+    try {
+      const prisma = PrismaConfig.getClient();
+      await prisma.zapLog.create({
+        data: {
+          sender_id: sender.id,
+          receiver_id: receiver.id,
+          amount: amount,
+          zap_message: zapMessage || null
+        }
+      });
+
+      log(`Zap log saved: @${sender.username} sent ${amount} sats to @${receiver.username}`, "info");
+    } catch (logError: any) {
+      log(`Warning: Failed to save zap log: ${logError.message}`, "warn");
     }
 
     return { success: true, message: "Payment completed successfully" };

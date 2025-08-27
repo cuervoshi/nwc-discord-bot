@@ -86,8 +86,12 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       ]);
 
       if (botLud16) {
+        const footerText = accountResult.isServiceAccount 
+          ? "Payments to the bot address will be received in your custodial wallet"
+          : "Payments to the bot address will be received in your connected wallet";
+        
         embed.setFooter({
-          text: "Payments to the bot address will be received in your connected wallet"
+          text: footerText
         });
       }
     }
