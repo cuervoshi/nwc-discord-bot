@@ -1,15 +1,13 @@
 import {
   SlashCommandBuilder,
-  EmbedBuilder,
   ChatInputCommandInteraction,
-  ActionRowBuilder,
-  ButtonBuilder,
 } from "discord.js";
 import { getAccountInternal } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
 } from "../utils/helperFunctions.js";
 import { log } from "../handlers/log.js";
+import { createZapConfigEmbed, createZapConfigComponents } from "../utils/helperZapConfig.js";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -43,36 +41,18 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     const isEnabled = userAccount.zapReaction_enabled || false;
     const zapAmount = userAccount.zapReaction_amount || 21;
 
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: "Zap Reaction Configuration",
-        iconURL: `https://cdn.discordapp.com/avatars/${interaction.user.id}/${interaction.user.avatar}`,
-      })
-      .setDescription(
-        `**⚡ Zap Reactions allow you to send satoshis by reacting to messages with the lightning emoji.**\n\n` +
-        `**How it works:**\n` +
-        `• When you react with ⚡ to any message, you'll automatically send satoshis to the message author\n` +
-        `• The amount sent is based on your configuration below\n` +
-        `• Only works if you have this feature enabled\n\n` +
-        
-        `**Your current configuration:**\n` +
-        `• **Status:** ${isEnabled ? '✅ Enabled' : '❌ Disabled'}\n` +
-        `• **Amount per zap:** ${zapAmount} satoshis\n\n` +
-        
-        `**Click the button below to edit your configuration.**`
-      );
+    const embed = createZapConfigEmbed({
+      isEnabled,
+      zapAmount,
+      userId: interaction.user.id,
+      userAvatar: interaction.user.avatar || ''
+    });
+    
+    const components = createZapConfigComponents(isEnabled, zapAmount);
       
     await interaction.editReply({
       embeds: [embed],
-      components: [
-        new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId('edit_zap_config')
-            .setLabel('Edit Configuration')
-            .setStyle(1)
-            .setEmoji('⚙️')
-        )
-      ],
+      components,
     });
 
   } catch (err: any) {

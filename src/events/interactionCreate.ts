@@ -51,6 +51,21 @@ const invoke = async (client: ExtendedClient, interaction: Interaction) => {
         console.error(error);
       }
     }
+    // Handle string select menu interactions
+    else if (interaction.isStringSelectMenu()) {
+      const component = client.components.get(interaction.customId);
+      if (!component) {
+        console.error(`No component matching ${interaction.customId} was found.`);
+        return;
+      }
+
+      try {
+        await component.invoke(interaction);
+      } catch (error) {
+        console.error(`Error executing select menu ${interaction.customId}`);
+        console.error(error);
+      }
+    }
   } catch (error) {
     console.error("Error sending command");
     console.error(error);
