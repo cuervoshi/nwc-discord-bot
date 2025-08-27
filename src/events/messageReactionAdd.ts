@@ -3,13 +3,14 @@ import { zap } from "../handlers/zap.js";
 import { trackSatsSent } from "../handlers/ranking.js";
 import { log } from "../handlers/log.js";
 import { ExtendedClient } from "types/discord.js";
+import { getAccountInternal } from "../handlers/accounts.js";
 
 const once = false;
 const name = "messageReactionAdd";
+const zapEmoji = "⚡";
 
 async function invoke(client: ExtendedClient, reaction: MessageReaction | PartialMessageReaction, user: User) {
   log(`🎯 messageReactionAdd event invoked!`, "info");
-  log(`User object: ${JSON.stringify({ id: user.id, username: user.username, bot: user.bot, partial: user.partial })}`, "info");
 
   try {
     // Handle partial user
@@ -41,20 +42,35 @@ async function invoke(client: ExtendedClient, reaction: MessageReaction | Partia
       }
     }
 
-    log(`Reaction event triggered: ${user.username} reacted with ${reaction.emoji}`, "info");
-
-    let amount = 0;
     const emojiName = reaction.emoji.name;
-
-    if (emojiName === "⚡") {
-      log(
-        `${user.username} reaccionó con ⚡ al mensaje: "${reaction.message.content}"`,
-        "info"
-      );
-      amount = 21;
+    if (emojiName !== zapEmoji) {
+      return;
     }
 
-    if (!amount) {
+    log(`Reaction event triggered: ${user.username} reacted with ${reaction.emoji}`, "info");
+
+    let userZapAmount = 0;
+    try {
+      const userNWC = await getAccountInternal(user.id, user.username, true);
+
+      if (!userNWC.success) {
+        log(`User ${user.username} has no account, zap reaction ignored`, "info");
+        return;
+      }
+
+      if (!userNWC.userAccount?.zapReaction_enabled) {
+        log(`User ${user.username} has zap reactions disabled, ignoring`, "info");
+        return;
+      }
+
+      userZapAmount = userNWC.userAccount.zapReaction_amount;
+      log(`User ${userNWC.userAccount.discord_username} has zap reactions enabled with amount: ${userZapAmount}`, "info");
+    } catch (configError: any) {
+      log(`Error checking zap reaction config for ${user.username}: ${configError.message}`, "err");
+      return;
+    }
+
+    if (!userZapAmount) {
       log(`No zap amount for emoji: ${emojiName || 'unknown'}`, "info");
       return;
     }
@@ -79,13 +95,13 @@ async function invoke(client: ExtendedClient, reaction: MessageReaction | Partia
       null,
       user,
       receiver,
-      amount,
+      userZapAmount,
       zapMessage
     );
 
     if (result.success) {
       try {
-        await trackSatsSent(user.id, amount);
+        await trackSatsSent(user.id, userZapAmount);
 
         log(
           `@${user.username} paid the zap invoice to @${receiver.username}`,
@@ -94,7 +110,7 @@ async function invoke(client: ExtendedClient, reaction: MessageReaction | Partia
 
         if (reaction.message.channel && reaction.message.channel.isTextBased() && 'send' in reaction.message.channel) {
           await (reaction.message.channel as any).send({
-            content: `⚡ ${user.toString()} zapped you with ${amount} sats for this message`,
+            content: `⚡ ${user.toString()} zapped you with ${userZapAmount} sats for this message`,
             reply: {
               messageReference: reaction.message.id
             }
@@ -110,7 +126,7 @@ async function invoke(client: ExtendedClient, reaction: MessageReaction | Partia
       );
 
       try {
-        await user.send(`❌ **Zap by reaction failed**\n\nYour zap of ${amount} sats to @${receiver.username} failed.\n\n**Error:** ${result.message}`);
+        await user.send(`❌ **Zap by reaction failed**\n\nYour zap of ${userZapAmount} sats to @${receiver.username} failed.\n\n**Error:** ${result.message}`);
       } catch (dmError: any) {
         log(`Could not send DM to ${user.username}: ${dmError.message}`, "warn");
       }
