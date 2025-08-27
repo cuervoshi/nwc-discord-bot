@@ -6,6 +6,7 @@ import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11
 import { formatter } from "./helperFormatter.js";
 import { BOT_CONFIG } from "./config.js";
 import { getBotServiceAccount } from "../handlers/accounts.js";
+import { log } from "../handlers/log.js";
 
 export const signupCache = redisCache;
 
@@ -259,7 +260,7 @@ export const handleInvoicePayment = async (
       try {
         const botServiceAccount = await getBotServiceAccount();
         if (!botServiceAccount.success || !botServiceAccount.nwcClient) {
-          console.log("Warning: Could not get bot service account for commission payment");
+          log("Warning: Could not get bot service account for commission payment", "warn");
         } else {
           const commissionInvoice = await botServiceAccount.nwcClient.makeInvoice({
             amount: additionalCommission * 1000,
@@ -272,17 +273,17 @@ export const handleInvoicePayment = async (
             });
 
             if (commissionPayment && commissionPayment.preimage) {
-              console.log(`Commission payment successful: ${additionalCommission} sats`);
+              log(`Commission payment successful: ${additionalCommission} sats`, "info");
             } else {
-              console.log("Warning: Commission payment failed, but main payment was successful");
+              log("Warning: Commission payment failed, but main payment was successful", "warn");
             }
           }
         }
       } catch (commissionError: any) {
-        console.log(`Warning: Commission payment error: ${commissionError.message}`);
+        log(`Warning: Commission payment error: ${commissionError.message}`, "warn");
       }
     } else {
-      console.log(`No additional commission charged (commission to pay: ${commissionToPay.toFixed(3)} sats)`);
+      log(`No additional commission charged (commission to pay: ${commissionToPay.toFixed(3)} sats)`, "info");
     }
 
     return {
