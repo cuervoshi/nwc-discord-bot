@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { initializeBotAccount } from "./handlers/accounts.js";
 import redisCache from "./handlers/RedisCache.js";
+import { startHttpServer } from "./server/httpServer.js";
 
 config();
 
@@ -28,6 +29,9 @@ const client = new Client({
 client.commands = new Collection();
 client.components = new Collection();
 
+// Store HTTP server reference for graceful shutdown
+let httpServer: any = null;
+
 connect(mongoURI)
   .then(async () => {
     console.log("✅ Connected to MongoDB");
@@ -46,6 +50,9 @@ connect(mongoURI)
     } else {
       console.error(`❌ Bot service account initialization failed: ${botInitResult.message}`);
     }
+
+    // Start HTTP server if enabled
+    httpServer = startHttpServer();
   })
   .catch((err) => {
     console.error("❌ Error connecting to MongoDB:", err);
@@ -104,12 +111,28 @@ client.login(token);
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\n🔄 Shutting down gracefully...');
+  
+  // Close HTTP server if running
+  if (httpServer) {
+    httpServer.close(() => {
+      console.log('HTTP server closed');
+    });
+  }
+  
   await redisCache.disconnect();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\n🔄 Shutting down gracefully...');
+  
+  // Close HTTP server if running
+  if (httpServer) {
+    httpServer.close(() => {
+      console.log('HTTP server closed');
+    });
+  }
+  
   await redisCache.disconnect();
   process.exit(0);
 });

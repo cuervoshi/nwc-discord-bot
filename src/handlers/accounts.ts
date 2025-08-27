@@ -619,4 +619,43 @@ const disconnectAccount = async (discord_id: string): Promise<{ success: boolean
   }
 };
 
-export { connectAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser, disconnectAccount };
+const getAccountByUsername = async (username: string): Promise<AccountResult> => {
+  try {
+    const userAccount = await (AccountModel as any).findOne({ discord_username: username });
+    
+    if (!userAccount) {
+      return {
+        success: false,
+        message: "User not found"
+      };
+    }
+
+    // Try to get the account using the existing getAccount logic
+    // We'll create a minimal mock interaction for this purpose
+    const mockInteraction = {
+      guild: {
+        members: {
+          fetch: async (userId: string) => {
+            return {
+              user: {
+                id: userId,
+                username: username
+              }
+            };
+          }
+        }
+      }
+    } as any;
+
+    return await getAccount(mockInteraction, userAccount.discord_id);
+    
+  } catch (err: any) {
+    log(`Error getting account by username ${username}: ${err.message}`, "err");
+    return {
+      success: false,
+      message: `Error retrieving account: ${err.message}`
+    };
+  }
+};
+
+export { connectAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser, disconnectAccount, getAccountByUsername };
