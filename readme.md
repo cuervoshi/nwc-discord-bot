@@ -73,6 +73,7 @@ docker-compose up --build
 /faucet: Create an open invoice that any user can claim
 /top: Returns the TOP 10 ranking of users who sent sats through the bot
 /zap user: <user> amount: <integer> message: <string>: Send sats to a user in discord
+/config-zap: Configure your zap reactions settings (enable/disable and amount)
 /connect nwc_uri: <string>: Connect your wallet through Nostr Wallet Connect
 /disconnect: Disconnect your wallet from the bot
 /help: Get help about commands
