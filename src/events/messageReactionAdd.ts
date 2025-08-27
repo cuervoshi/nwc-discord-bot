@@ -89,7 +89,7 @@ async function invoke(client: ExtendedClient, reaction: MessageReaction | Partia
       }
     }
 
-    const zapMessage = `${user.username} zapeó tu mensaje de discord`;
+    const zapMessage = `${user.username} zapped your Discord message`;
 
     const result = await zap(
       null,
