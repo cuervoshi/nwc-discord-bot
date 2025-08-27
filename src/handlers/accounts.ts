@@ -822,4 +822,4 @@ const getAccountByUsername = async (username: string): Promise<AccountResult> =>
   }
 };
 
-export { connectAccount, getBotServiceAccount, validateAccount, getAccount, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser, disconnectAccount, getAccountByUsername };
+export { connectAccount, getBotServiceAccount, validateAccount, getAccount, getAccountInternal, createServiceWallet, initializeBotAccount, checkBotAccountFunds, transferBotFundsToUser, disconnectAccount, getAccountByUsername };

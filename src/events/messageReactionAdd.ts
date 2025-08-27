@@ -1,107 +1,142 @@
-import { MessageReaction, User } from "discord.js";
+import { MessageReaction, PartialMessageReaction, User } from "discord.js";
 import { zap } from "../handlers/zap.js";
-import { TimedMessage } from "../utils/helperFunctions.js";
 import { trackSatsSent } from "../handlers/ranking.js";
 import { log } from "../handlers/log.js";
+import { ExtendedClient } from "types/discord.js";
+import { getAccountInternal } from "../handlers/accounts.js";
 
 const once = false;
 const name = "messageReactionAdd";
+const zapEmoji = "⚡";
 
-async function invoke(reaction: MessageReaction, user: User) {
-  /*try {
+async function invoke(client: ExtendedClient, reaction: MessageReaction | PartialMessageReaction, user: User) {
+  log(`🎯 messageReactionAdd event invoked!`, "info");
+
+  try {
+    // Handle partial user
     if (user.partial) {
       try {
+        log(`Fetching partial user ${user.id}...`, "info");
         await user.fetch();
+        log(`User fetched successfully: ${user.username}`, "info");
       } catch (err) {
-        throw new Error("Fetch partial user error: " + err);
+        log(`Error fetching partial user: ${err}`, "err");
+        return;
       }
     }
 
-    if (user.bot) return;
+    if (user.bot) {
+      log(`Bot reaction ignored: ${user.username}`, "info");
+      return;
+    }
 
+    // Handle partial reaction
     if (reaction.partial) {
       try {
+        log(`Fetching partial reaction...`, "info");
         await reaction.fetch();
+        log(`Reaction fetched successfully`, "info");
       } catch (error) {
-        throw new Error("Fetch partial message error: " + error);
+        log(`Error fetching partial reaction: ${error}`, "err");
+        return;
       }
     }
 
-    let amount = 0;
-    switch (reaction.emoji.name) {
-      case "⚡":
-        log(
-          `${user.username} reaccionó con ⚡ al mensaje: "${reaction.message.content}"`,
-          "info"
-        );
-        amount = 21;
-        break;
-      case "🚀":
-        log(
-          `${user.username} reaccionó con 🚀 al mensaje: "${reaction.message.content}"`,
-          "info"
-        );
-        amount = 210;
-        break;
+    const emojiName = reaction.emoji.name;
+    if (emojiName !== zapEmoji) {
+      return;
     }
 
-    if (!amount) return;
+    log(`Reaction event triggered: ${user.username} reacted with ${reaction.emoji}`, "info");
+
+    let userZapAmount = 0;
+    try {
+      const userNWC = await getAccountInternal(user.id, user.username, true);
+
+      if (!userNWC.success) {
+        log(`User ${user.username} has no account, zap reaction ignored`, "info");
+        return;
+      }
+
+      if (!userNWC.userAccount?.zapReaction_enabled) {
+        log(`User ${user.username} has zap reactions disabled, ignoring`, "info");
+        return;
+      }
+
+      userZapAmount = userNWC.userAccount.zapReaction_amount;
+      log(`User ${userNWC.userAccount.discord_username} has zap reactions enabled with amount: ${userZapAmount}`, "info");
+    } catch (configError: any) {
+      log(`Error checking zap reaction config for ${user.username}: ${configError.message}`, "err");
+      return;
+    }
+
+    if (!userZapAmount) {
+      log(`No zap amount for emoji: ${emojiName || 'unknown'}`, "info");
+      return;
+    }
 
     const receiver = reaction.message.author;
-    if (!receiver) return;
+    if (!receiver) {
+      log(`No message author found for reaction`, "info");
+      return;
+    }
 
-    const onSuccess = async () => {
+    if (reaction.message.channel && reaction.message.channel.isTextBased() && reaction.message.guild) {
+      const botMember = reaction.message.guild.members.me;
+      if (botMember && !botMember.permissions.has('SendMessages')) {
+        log(`Bot lacks SendMessages permission in guild ${reaction.message.guild.id}`, "warn");
+        return;
+      }
+    }
+
+    const zapMessage = `${user.username} zapeó tu mensaje de discord`;
+
+    const result = await zap(
+      null,
+      user,
+      receiver,
+      userZapAmount,
+      zapMessage
+    );
+
+    if (result.success) {
       try {
-        await trackSatsSent(user.id, amount);
+        await trackSatsSent(user.id, userZapAmount);
 
         log(
-          `@${user.username} pago la factura del zap hacia @${receiver.username}`,
+          `@${user.username} paid the zap invoice to @${receiver.username}`,
           "info"
         );
 
-        await (reaction.message.channel as any).send({
-          content: `${user.toString()} envió ${amount} satoshis a ${receiver.toString()}`,
-        });
-      } catch (err) {
-        console.log(err);
-        if (reaction.message.channel.isTextBased()) {
-          TimedMessage("Ocurrió un error", reaction.message.channel as any, 5000);
+        if (reaction.message.channel && reaction.message.channel.isTextBased() && 'send' in reaction.message.channel) {
+          await (reaction.message.channel as any).send({
+            content: `⚡ ${user.toString()} zapped you with ${userZapAmount} sats for this message`,
+            reply: {
+              messageReference: reaction.message.id
+            }
+          });
         }
+      } catch (err: any) {
+        log(`Error tracking zap for @${user.username}: ${err.message}`, "err");
       }
-    };
-
-    const onError = () => {
+    } else {
       log(
-        `@${user.username} tuvo un error al realizar el pago del zap hacia @${receiver.username}`,
+        `@${user.username} failed to pay zap invoice to @${receiver.username}: ${result.message}`,
         "err"
       );
 
-      if (reaction.message.channel.isTextBased()) {
-        TimedMessage("Ocurrió un error", reaction.message.channel as any, 5000);
+      try {
+        await user.send(`❌ **Zap by reaction failed**\n\nYour zap of ${userZapAmount} sats to @${receiver.username} failed.\n\n**Error:** ${result.message}`);
+      } catch (dmError: any) {
+        log(`Could not send DM to ${user.username}: ${dmError.message}`, "warn");
       }
-    };
-
-    const { success, message } = await zap(
-      user,
-      receiver,
-      amount,
-      onSuccess,
-      onError,
-      `${user.username} reaccionó con ⚡ a un mensaje tuyo`
-    );
-
-    if (!success && reaction.message.channel.isTextBased()) {
-      TimedMessage(message, reaction.message.channel as any, 5000);
     }
   } catch (err: any) {
     log(
-      `Error al enviar zap por reacción del usuario @${user.username} a @${reaction.message.author?.username} - Código de error ${err.code} Mensaje: ${err.message}`,
+      `Error in zap reaction from @${user.username} - Error code ${err.code} Message: ${err.message}`,
       "err"
     );
-    if (reaction.message.channel.isTextBased()) {
-      TimedMessage("Ocurrió un error", reaction.message.channel as any, 5000);
-    }
-  }*/
+  }
 }
 
 export { once, name, invoke };

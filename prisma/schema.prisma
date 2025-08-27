@@ -16,6 +16,8 @@ model Account {
   discord_username String
   nwc_uri          String
   bot_nwc_uri      String?
+  zapReaction_enabled Boolean @default(false)
+  zapReaction_amount  Int     @default(21)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

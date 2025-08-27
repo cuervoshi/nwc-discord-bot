@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Collection } from "discord.js";
+import { Client, GatewayIntentBits, Collection, Partials } from "discord.js";
 import { config } from "dotenv";
 import { PrismaConfig } from "./utils/prisma.js";
 import fs from "fs";
@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { initializeBotAccount } from "./handlers/accounts.js";
 import redisCache from "./handlers/RedisCache.js";
 import { startHttpServer } from "./server/httpServer.js";
+import { log } from "./handlers/log.js";
 
 config();
 
@@ -16,12 +17,19 @@ const __dirname = path.dirname(__filename);
 const token = process.env.BOT_TOKEN ?? "";
 
 const client = new Client({
+  partials: [
+    Partials.User,
+    Partials.Message,
+    Partials.Channel,
+    Partials.Reaction,
+  ],
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildPresences,
   ],
 });
 
@@ -34,6 +42,57 @@ let httpServer: any = null;
 // Initialize database connection and bot
 async function initializeBot() {
   try {
+
+    const eventsPath = path.join(__dirname, "events");
+    const eventFiles = fs
+      .readdirSync(eventsPath)
+      .filter((file) => file.endsWith(".js"));
+
+    for (let event of eventFiles) {
+      const eventPath = path.join(eventsPath, event);
+      const eventModule = await import(`file://${eventPath}`);
+      const eventData = eventModule.default || eventModule;
+
+      if (eventData.once) {
+        client.once(eventData.name, (...args) => eventData.invoke(client, ...args));
+      } else {
+        client.on(eventData.name, (...args) => eventData.invoke(client, ...args));
+      }
+    }
+
+    const commandsPath = path.join(__dirname, "commands");
+    const commandFiles = fs
+      .readdirSync(commandsPath)
+      .filter((file) => file.endsWith(".js"));
+
+    for (let command of commandFiles) {
+      const commandPath = path.join(commandsPath, command);
+      const commandModule = await import(`file://${commandPath}`);
+      const commandData = commandModule.default || commandModule;
+
+      client.commands.set(commandData.create().name, commandData);
+    }
+
+    const componentsPath = path.join(__dirname, "components");
+    const componentFolders = fs.readdirSync(componentsPath);
+
+    for (let folder of componentFolders) {
+      const componentFolderPath = path.join(componentsPath, folder);
+      const componentFiles = fs
+        .readdirSync(componentFolderPath)
+        .filter((file) => file.endsWith(".js"));
+
+      for (let component of componentFiles) {
+        const componentPath = path.join(componentFolderPath, component);
+        const componentModule = await import(`file://${componentPath}`);
+        const componentData = componentModule.default || componentModule;
+
+        client.components.set(componentData.customId, componentData);
+      }
+    }
+
+    client.login(token);
+
     // Initialize Prisma
     await PrismaConfig.initialize();
 
@@ -41,21 +100,21 @@ async function initializeBot() {
     try {
       await redisCache.connect();
     } catch (err) {
-      console.error("❌ Error connecting to Redis:", err);
+      log("❌ Error connecting to Redis: " + err, "err");
     }
 
     const botInitResult = await initializeBotAccount();
 
     if (botInitResult.success) {
-      console.log(`✅ Bot service account ready - Balance: ${botInitResult.balance} sats`);
+      log(`✅ Bot service account ready - Balance: ${botInitResult.balance} sats`, "info");
     } else {
-      console.error(`❌ Bot service account initialization failed: ${botInitResult.message}`);
+      log(`❌ Bot service account initialization failed: ${botInitResult.message}`, "err");
     }
 
     // Start HTTP server if enabled
     httpServer = startHttpServer();
   } catch (err) {
-    console.error("❌ Error connecting to database:", err);
+    log("❌ Error connecting to database: " + err, "err");
     process.exit(1);
   }
 }
@@ -63,85 +122,35 @@ async function initializeBot() {
 // Start the bot
 initializeBot();
 
-const eventsPath = path.join(__dirname, "events");
-const eventFiles = fs
-  .readdirSync(eventsPath)
-  .filter((file) => file.endsWith(".js"));
-
-for (let event of eventFiles) {
-  const eventPath = path.join(eventsPath, event);
-  const eventModule = await import(`file://${eventPath}`);
-  const eventData = eventModule.default || eventModule;
-
-  if (eventData.once) {
-    client.once(eventData.name, (...args) => eventData.invoke(client, ...args));
-  } else {
-    client.on(eventData.name, (...args) => eventData.invoke(client, ...args));
-  }
-}
-
-const commandsPath = path.join(__dirname, "commands");
-const commandFiles = fs
-  .readdirSync(commandsPath)
-  .filter((file) => file.endsWith(".js")); 
-
-for (let command of commandFiles) {
-  const commandPath = path.join(commandsPath, command);
-  const commandModule = await import(`file://${commandPath}`);
-  const commandData = commandModule.default || commandModule;
-
-  client.commands.set(commandData.create().name, commandData);
-}
-
-const componentsPath = path.join(__dirname, "components");
-const componentFolders = fs.readdirSync(componentsPath);
-
-for (let folder of componentFolders) {
-  const componentFolderPath = path.join(componentsPath, folder);
-  const componentFiles = fs
-    .readdirSync(componentFolderPath)
-    .filter((file) => file.endsWith(".js"));
-
-  for (let component of componentFiles) {
-    const componentPath = path.join(componentFolderPath, component);
-    const componentModule = await import(`file://${componentPath}`);
-    const componentData = componentModule.default || componentModule;
-
-    client.components.set(componentData.customId, componentData);
-  }
-}
-
-client.login(token);
-
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('\n🔄 Shutting down gracefully...');
-  
+  log('\n🔄 Shutting down gracefully...', "info");
+
   // Close HTTP server if running
   if (httpServer) {
     httpServer.close(() => {
-      console.log('HTTP server closed');
+      log('HTTP server closed', "info");
     });
   }
-  
+
   await redisCache.disconnect();
   await PrismaConfig.disconnect();
-  console.log('Database connection closed');
+  log('Database connection closed', "info");
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n🔄 Shutting down gracefully...');
-  
+  log('\n🔄 Shutting down gracefully...', "info");
+
   // Close HTTP server if running
   if (httpServer) {
     httpServer.close(() => {
-      console.log('HTTP server closed');
+      log('HTTP server closed', "info");
     });
   }
-  
+
   await redisCache.disconnect();
   await PrismaConfig.disconnect();
-  console.log('Database connection closed');
+  log('Database connection closed', "info");
   process.exit(0);
 });

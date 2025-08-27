@@ -92,3 +92,20 @@ export interface ZapLogListResult {
   error?: string;
   total?: number;
 }
+
+// Zap Reaction Configuration types
+export interface ZapReactionConfig {
+  enabled: boolean;
+  amount: number;
+}
+
+export interface ZapReactionConfigUpdate {
+  enabled?: boolean;
+  amount?: number;
+}
+
+export interface ZapReactionConfigResult {
+  success: boolean;
+  config?: ZapReactionConfig;
+  error?: string;
+}
