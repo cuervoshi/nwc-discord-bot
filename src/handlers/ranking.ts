@@ -1,46 +1,55 @@
-import RankingModel from "../schemas/RankSchema.js";
-import { RankResult } from "../types/rank.js";
+import { PrismaConfig } from "../utils/prisma.js";
+import type { Rank } from "../types/prisma.js";
 
-const createRank = async (discord_id: string, type: string, amount: number): Promise<RankResult | null> => {
+const createRank = async (discord_id: string, type: string, amount: number): Promise<Rank | null> => {
   try {
-    const newUserRank = new RankingModel({
-      discord_id,
-      type,
-      amount,
+    const prisma = PrismaConfig.getClient();
+    const result = await prisma.rank.create({
+      data: {
+        discord_id,
+        type,
+        amount,
+      },
     });
-    const result = await newUserRank.save();
 
-    return result as RankResult;
+    return result;
   } catch (err: any) {
     return null;
   }
 };
 
-const getRank = async (discord_id: string, type: string): Promise<RankResult | null> => {
+const getRank = async (discord_id: string, type: string): Promise<Rank | null> => {
   if (!discord_id) return null;
 
   try {
-    const user_rank = await (RankingModel as any).findOne({
-      discord_id,
-      type,
+    const prisma = PrismaConfig.getClient();
+    const user_rank = await prisma.rank.findFirst({
+      where: {
+        discord_id,
+        type,
+      },
     });
-    if (user_rank) return user_rank as RankResult;
+
+    return user_rank;
   } catch (err: any) {
     return null;
   }
-
-  return null;
 };
 
-const updateUserRank = async (discord_id: string, type: string, new_amount: number): Promise<RankResult | null> => {
+const updateUserRank = async (discord_id: string, type: string, new_amount: number): Promise<Rank | null> => {
   try {
     const userRank = await getRank(discord_id, type);
 
     if (userRank) {
-      userRank.amount = userRank.amount + new_amount;
-      await userRank.save();
+      const prisma = PrismaConfig.getClient();
+      const updatedRank = await prisma.rank.update({
+        where: { id: userRank.id },
+        data: {
+          amount: userRank.amount + new_amount,
+        },
+      });
 
-      return userRank;
+      return updatedRank;
     } else {
       const new_rank = await createRank(discord_id, type, new_amount);
       return new_rank;
@@ -51,13 +60,16 @@ const updateUserRank = async (discord_id: string, type: string, new_amount: numb
   }
 };
 
-const getTopRanking = async (type: string): Promise<RankResult[] | null> => {
+const getTopRanking = async (type: string): Promise<Rank[] | null> => {
   try {
-    const topUsers = await (RankingModel as any).find({ type })
-      .sort({ amount: -1 })
-      .limit(10);
+    const prisma = PrismaConfig.getClient();
+    const topUsers = await prisma.rank.findMany({
+      where: { type },
+      orderBy: { amount: 'desc' },
+      take: 10,
+    });
 
-    return topUsers as RankResult[];
+    return topUsers;
   } catch (err: any) {
     console.log(err);
     return null;
@@ -66,20 +78,22 @@ const getTopRanking = async (type: string): Promise<RankResult[] | null> => {
 
 const getSumOfDonationAmounts = async (type: string): Promise<number | null> => {
   try {
-    const result = await (RankingModel as any).aggregate([
-      { $match: { type: type } },
-      { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
-    ]);
+    const prisma = PrismaConfig.getClient();
+    const result = await prisma.rank.aggregate({
+      where: { type },
+      _sum: {
+        amount: true,
+      },
+    });
 
-    if (result.length > 0) return result[0].totalAmount;
-    return 0;
+    return result._sum.amount || 0;
   } catch (err: any) {
     console.error(err);
     return null;
   }
 };
 
-const trackSatsSent = async (discord_id: string, amount: number): Promise<RankResult | null> => {
+const trackSatsSent = async (discord_id: string, amount: number): Promise<Rank | null> => {
   return await updateUserRank(discord_id, "sats_sent", amount);
 };
 

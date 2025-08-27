@@ -6,7 +6,7 @@ import {
   FollowUpEphemeralResponse,
 } from "../../utils/helperFunctions.js";
 import { faucetQueues, processFaucetQueue } from "./claim.js";
-import { Faucet } from "types/faucet.js";
+import { Faucet } from "../../types/index.js";
 
 const customId = "closefaucet";
 

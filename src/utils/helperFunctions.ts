@@ -6,6 +6,7 @@ import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11
 import { formatter } from "./helperFormatter.js";
 import { BOT_CONFIG } from "./config.js";
 import { getBotServiceAccount } from "../handlers/accounts.js";
+import { log } from "../handlers/log.js";
 
 export const signupCache = redisCache;
 
@@ -242,7 +243,7 @@ export const handleInvoicePayment = async (
     const decoded = bolt11.decode(invoice);
     const invoiceAmount = decoded.satoshis || Math.floor(Number(decoded.millisatoshis) / 1000);
 
-    const commissionAmount = Math.ceil(invoiceAmount * BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION);
+    const commissionAmount = invoiceAmount * BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION;
     const paymentResponse = await nwcClient.payInvoice({
       invoice: invoice,
     });
@@ -252,37 +253,37 @@ export const handleInvoicePayment = async (
     }
 
     const feesPaid = paymentResponse.fees_paid ? Number(paymentResponse.fees_paid.toString()) / 1000 : 0;
-    const additionalCommission = Math.max(1, Math.floor(commissionAmount - feesPaid));
+    const commissionToPay = commissionAmount - feesPaid;
+    const additionalCommission = commissionToPay > 0.5 ? Math.ceil(commissionToPay) : 0;
 
-    try {
-      const botServiceAccount = await getBotServiceAccount();
-      if (!botServiceAccount.success || !botServiceAccount.nwcClient) {
-        console.log("Warning: Could not get bot service account for commission payment");
-        return {
-          success: true,
-          preimage: paymentResponse.preimage,
-          fees_paid: feesPaid
-        };
-      }
-
-              const commissionInvoice = await botServiceAccount.nwcClient.makeInvoice({
-          amount: additionalCommission * 1000,
-          description: `Commission payment for ${invoiceAmount} sats transfer${username ? ` from ${username}` : ''}`,
-        });
-
-      if (commissionInvoice && commissionInvoice.invoice) {
-        const commissionPayment = await nwcClient.payInvoice({
-          invoice: commissionInvoice.invoice,
-        });
-
-        if (commissionPayment && commissionPayment.preimage) {
-          console.log(`Commission payment successful: ${additionalCommission} sats`);
+    if (additionalCommission > 0) {
+      try {
+        const botServiceAccount = await getBotServiceAccount();
+        if (!botServiceAccount.success || !botServiceAccount.nwcClient) {
+          log("Warning: Could not get bot service account for commission payment", "warn");
         } else {
-          console.log("Warning: Commission payment failed, but main payment was successful");
+          const commissionInvoice = await botServiceAccount.nwcClient.makeInvoice({
+            amount: additionalCommission * 1000,
+            description: `Commission payment for ${invoiceAmount} sats transfer${username ? ` from ${username}` : ''}`,
+          });
+
+          if (commissionInvoice && commissionInvoice.invoice) {
+            const commissionPayment = await nwcClient.payInvoice({
+              invoice: commissionInvoice.invoice,
+            });
+
+            if (commissionPayment && commissionPayment.preimage) {
+              log(`Commission payment successful: ${additionalCommission} sats`, "info");
+            } else {
+              log("Warning: Commission payment failed, but main payment was successful", "warn");
+            }
+          }
         }
+      } catch (commissionError: any) {
+        log(`Warning: Commission payment error: ${commissionError.message}`, "warn");
       }
-    } catch (commissionError: any) {
-      console.log(`Warning: Commission payment error: ${commissionError.message}`);
+    } else {
+      log(`No additional commission charged (commission to pay: ${commissionToPay.toFixed(3)} sats)`, "info");
     }
 
     return {
@@ -328,6 +329,25 @@ const formatSuccessMessage = (title: string, content: string): any => {
   return { embeds: [embed] };
 };
 
+const getApplicationIdFromAPI = async (botToken: string): Promise<string | null> => {
+  try {
+    const response = await fetch('https://discord.com/api/v10/applications/@me', {
+      headers: {
+        'Authorization': `Bot ${botToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.id;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
 export {
   EphemeralMessageResponse,
   TimedMessage,
@@ -337,4 +357,5 @@ export {
   formatBalanceMessage,
   formatErrorMessage,
   formatSuccessMessage,
+  getApplicationIdFromAPI
 };

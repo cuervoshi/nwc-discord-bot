@@ -139,12 +139,12 @@ const createFaucetWithMessage = async (
       users
     );
 
-    if (!newFaucet || !newFaucet._id) {
+    if (!newFaucet || !newFaucet.id) {
       await interaction.editReply(formatErrorMessage("Database error", "An error occurred while creating the faucet in the database"));
       return;
     }
 
-    const faucetId = newFaucet._id.toString();
+    const faucetId = newFaucet.id;
 
     const embed = new EmbedBuilder()
       .setAuthor({

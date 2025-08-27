@@ -12,8 +12,8 @@ Rename .env.example to .env and replace your enviroment vars:
 # Discord bot authentication token
 BOT_TOKEN=YOUR_BOT_TOKEN_ID
 
-# MongoDB database connection URI
-MONGODB_URI=mongodb+srv://<username>:<password>@<url>/<dbname>
+# PostgreSQL database connection URI
+DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<dbname>
 
 # Redis connection URL (defaults to localhost:6379)
 REDIS_URL=redis://localhost:6379
@@ -24,6 +24,10 @@ ALBYHUB_TOKEN=your_alby_hub_api_token
 
 # Salt for encrypting the nwc_uri
 SALT=123456789
+
+# HTTP Server configuration (optional)
+HTTPSERVER_ENABLED=true
+HTTPSERVER_PORT=8001
 ```
 
 ## Configuration
@@ -73,3 +77,13 @@ docker-compose up --build
 /disconnect: Disconnect your wallet from the bot
 /help: Get help about commands
 ```
+
+## HTTP Server
+
+The bot includes an optional HTTP server that can be enabled via environment variables. When enabled, it exposes endpoints for creating invoices for Discord users using their username. This functionality enables Lightning Addresses (LUD16) support, allowing users to receive payments through their Discord username. The server runs on the port specified in `HTTPSERVER_PORT` (default: 8001) and is accessible at `http://localhost:${HTTPSERVER_PORT}` when running with Docker.
+
+### TODO - Upcoming Endpoints
+
+- [ ] **Discord Authentication**: Auth with Discord login
+- [ ] **Invoice Payment**: Pay invoice with token authentication
+- [ ] **Wallet WebApp**: Web interface that allows you to connect with Discord and manage your account from there

@@ -1,0 +1,78 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id               String   @id @default(cuid())
+  discord_id       String   @unique
+  discord_username String
+  nwc_uri          String
+  bot_nwc_uri      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  faucets Faucet[]
+  ranks  Rank[]
+  sentZaps     ZapLog[] @relation("ZapSender")
+  receivedZaps ZapLog[] @relation("ZapReceiver")
+
+  @@map("accounts")
+}
+
+model Faucet {
+  id             String   @id @default(cuid())
+  owner_id       String
+  owner_username String
+  amount         Int
+  maxUses        Int
+  channelId      String
+  messageId      String
+  claimersIds    String[]
+  closed         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  owner Account @relation(fields: [owner_id], references: [discord_id])
+
+  @@map("faucets")
+}
+
+model Rank {
+  id         String   @id @default(cuid())
+  discord_id String
+  type       String
+  amount     Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  account Account @relation(fields: [discord_id], references: [discord_id])
+
+  @@map("ranks")
+}
+
+model ZapLog {
+  id           String   @id @default(cuid())
+  sender_id    String
+  receiver_id  String
+  amount       Int
+  zap_message  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  sender   Account @relation("ZapSender", fields: [sender_id], references: [discord_id])
+  receiver Account @relation("ZapReceiver", fields: [receiver_id], references: [discord_id])
+
+  @@map("zap_logs")
+}

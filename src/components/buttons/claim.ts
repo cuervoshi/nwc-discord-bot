@@ -15,7 +15,7 @@ import {
   FollowUpEphemeralResponse,
   handleInvoicePayment
 } from "../../utils/helperFunctions.js";
-import { Faucet } from "types/faucet.js";
+import { Faucet } from "../../types/index.js";
 import { NWCClient } from "@getalby/sdk";
 
 interface QueueItem {
@@ -81,7 +81,7 @@ const processFaucetQueue = async (faucetId: string): Promise<void> => {
 const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Promise<void> => {
   try {
     const userId: string = interaction.user.id;
-    const faucetId: string = faucet._id.toString();
+    const faucetId: string = faucet.id;
 
     const userWallet: AccountResult = await getAccount(interaction, userId);
     const faucetWallet: ServiceAccountResult = await getBotServiceAccount();
@@ -136,7 +136,7 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
 const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Promise<void> => {
   try {
     const user = interaction.user;
-    const faucetId: string = faucet._id.toString();
+    const faucetId: string = faucet.id;
 
     log(`${user.username} closing faucet ${faucetId}`, "info");
 
