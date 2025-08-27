@@ -12,8 +12,10 @@ function validateAmount(amount: string | null): number | null {
   if (typeof amount === "string") {
     try {
       const parsedAmount = parseInt(amount);
-      if (parsedAmount > 0) {
-        return parsedAmount;
+      const satoshis = Math.floor(parsedAmount / 1000);
+      
+      if (satoshis >= 1) {
+        return satoshis;
       }
     } catch {
       return null;
@@ -46,7 +48,7 @@ async function createInvoiceForUser(username: string, amount: number, comment: s
     }
 
     const invoiceResponse = await accountResult.nwcClient.makeInvoice({
-      amount: amount * 1000, 
+      amount: amount,
       description: comment || `Payment to ${username}`
     });
 
@@ -81,7 +83,7 @@ export async function handleLud16Callback(req: any, res: any) {
   if (validatedAmount === null) {
     return res.status(422).json({ 
       status: "ERROR", 
-      reason: "Invalid amount" 
+      reason: "Invalid amount - minimum 1000 millisatoshis (1 satoshi) required" 
     });
   }
   
@@ -105,7 +107,7 @@ export async function handleLud16Callback(req: any, res: any) {
   try {
     log(`LNURL callback request for ${username} - Amount: ${validatedAmount}`, "info");
     
-    const invoiceResult = await createInvoiceForUser(username, validatedAmount, validatedComment);
+    const invoiceResult = await createInvoiceForUser(username, amount, validatedComment);
     
     if (!invoiceResult.success) {
       log(`LNURL callback error for ${username}: ${invoiceResult.error}`, "err");
