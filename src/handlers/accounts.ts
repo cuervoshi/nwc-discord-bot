@@ -553,11 +553,8 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
       });
 
       if (existingBotAccount) {
-        log(`Deleting existing failed bot account and creating new one...`, "info");
+        log(`Replacing existing failed bot account with new one...`, "info");
 
-        await prisma.account.delete({
-          where: { discord_id: botAppId }
-        });
         await accountsCache.delete(`account:bot-service`);
 
         const newServiceWalletResult = await createServiceWallet(botAppId, "NWC Zap Bot Service");
