@@ -1,24 +1,53 @@
-version: "1"
+version: "3.8"
 services:
-  bot:
+  lnbot:
     build: .
-    container_name: nwc-bot
+    container_name: ln-bot
     restart: always
     depends_on:
-      - mongo
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      lnbot-db-migrate:
+        condition: service_completed_successfully
     ports:
       - "${HTTPSERVER_PORT:-8001}:8001"
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ln-bot
+      - REDIS_URL=redis://redis:6379
 
-  mongo:
-    image: mongo
-    container_name: mongo-server
-    ports:
-      - "27017:27017"
+  lnbot-db-migrate:
+    image: node:18-alpine
+    container_name: lnbot-db-migrate
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ln-bot
+    entrypoint: ['sh', '-c', 'npm install -g pnpm && pnpm add prisma@6.14.0 && npx prisma migrate deploy']
     volumes:
-      - mongo-data:/data/db
+      - ./prisma:/app/prisma
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-server
+    environment:
+      POSTGRES_DB: ln-bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -28,7 +57,12 @@ services:
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  mongo-data:
+  postgres-data:
   redis-data:

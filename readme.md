@@ -12,8 +12,8 @@ Rename .env.example to .env and replace your enviroment vars:
 # Discord bot authentication token
 BOT_TOKEN=YOUR_BOT_TOKEN_ID
 
-# MongoDB database connection URI
-MONGODB_URI=mongodb+srv://<username>:<password>@<url>/<dbname>
+# PostgreSQL database connection URI
+DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<dbname>
 
 # Redis connection URL (defaults to localhost:6379)
 REDIS_URL=redis://localhost:6379

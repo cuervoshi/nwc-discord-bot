@@ -1,8 +1,30 @@
 import { NWCClient } from "@getalby/sdk";
-import { Account } from "./account.js";
+import type { Account } from "./prisma.js";
 import { PaymentRequestObject, TagsObject } from "bolt11";
 import { Interaction } from "discord.js";
 import { ExtendedClient } from "./discord.js";
+
+// Re-export Prisma types for convenience
+export type { 
+  Account, 
+  Faucet, 
+  Rank,
+  AccountWithRelations,
+  FaucetWithRelations,
+  RankWithRelations,
+  AccountCreateInput,
+  FaucetCreateInput,
+  RankCreateInput,
+  AccountUpdateInput,
+  FaucetUpdateInput,
+  RankUpdateInput,
+  AccountQueryResult,
+  FaucetQueryResult,
+  RankQueryResult,
+  AccountListResult,
+  FaucetListResult,
+  RankListResult
+} from "./prisma.js";
 
 export interface Command {
   create: () => any;
@@ -40,6 +62,7 @@ export interface ServiceAccountResult {
   nwcClient?: NWCClient;
   balance?: number;
   isServiceAccount?: boolean;
+  encryptedNwcUri?: string;
   accountInfo?: {
     type: string;
     purpose: string;

@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits, Collection } from "discord.js";
 import { config } from "dotenv";
-import { connect } from "mongoose";
+import { PrismaConfig } from "./utils/prisma.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -13,7 +13,6 @@ config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const mongoURI = process.env.MONGODB_URI ?? "";
 const token = process.env.BOT_TOKEN ?? "";
 
 const client = new Client({
@@ -32,9 +31,11 @@ client.components = new Collection();
 // Store HTTP server reference for graceful shutdown
 let httpServer: any = null;
 
-connect(mongoURI)
-  .then(async () => {
-    console.log("✅ Connected to MongoDB");
+// Initialize database connection and bot
+async function initializeBot() {
+  try {
+    // Initialize Prisma
+    await PrismaConfig.initialize();
 
     // Initialize Redis connection
     try {
@@ -53,10 +54,14 @@ connect(mongoURI)
 
     // Start HTTP server if enabled
     httpServer = startHttpServer();
-  })
-  .catch((err) => {
-    console.error("❌ Error connecting to MongoDB:", err);
-  });
+  } catch (err) {
+    console.error("❌ Error connecting to database:", err);
+    process.exit(1);
+  }
+}
+
+// Start the bot
+initializeBot();
 
 const eventsPath = path.join(__dirname, "events");
 const eventFiles = fs
@@ -120,6 +125,8 @@ process.on('SIGINT', async () => {
   }
   
   await redisCache.disconnect();
+  await PrismaConfig.disconnect();
+  console.log('Database connection closed');
   process.exit(0);
 });
 
@@ -134,5 +141,7 @@ process.on('SIGTERM', async () => {
   }
   
   await redisCache.disconnect();
+  await PrismaConfig.disconnect();
+  console.log('Database connection closed');
   process.exit(0);
 });

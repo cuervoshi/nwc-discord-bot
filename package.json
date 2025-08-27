@@ -8,6 +8,7 @@
 	"license": "MIT",
 	"dependencies": {
 		"@getalby/sdk": "^6.0.0",
+		"@prisma/client": "6.14.0",
 		"bolt11": "^1.4.1",
 		"chalk": "^5.3.0",
 		"crypto-js": "^4.2.0",
@@ -16,7 +17,6 @@
 		"dotenv": "^16.4.5",
 		"express": "^5.1.0",
 		"lnurl-pay": "^3.0.1",
-		"mongoose": "^8.6.0",
 		"qrcode": "^1.5.4",
 		"redis": "^5.8.2",
 		"ws": "^8.18.0"
@@ -36,11 +36,17 @@
 		"build": "tsc",
 		"watch": "tsc --watch",
 		"type-check": "tsc --noEmit",
-		"clean": "rm -rf dist"
+		"clean": "rm -rf dist",
+		"postinstall": "npx prisma generate",
+		"db:generate": "npx prisma generate",
+		"db:push": "npx prisma db push",
+		"db:migrate": "npx prisma migrate dev",
+		"db:studio": "npx prisma studio"
 	},
 	"devDependencies": {
 		"@types/crypto-js": "^4.2.2",
 		"@types/node": "^24.3.0",
+		"prisma": "6.14.0",
 		"typescript": "^5.9.2"
 	}
 }

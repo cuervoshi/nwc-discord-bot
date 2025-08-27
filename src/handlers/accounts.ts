@@ -1,37 +1,67 @@
-import AccountModel from "../schemas/AccountSchema.js";
+import { PrismaConfig } from "../utils/prisma.js";
 import { encryptData, decryptData } from "../utils/crypto.js";
 import { NWCClient } from "@getalby/sdk";
 import { log } from "./log.js";
-import { validateNWCURI, testNWCConnection, requiredEnvVar, handleInvoicePayment } from "../utils/helperFunctions.js";
+import { validateNWCURI, testNWCConnection, requiredEnvVar, handleInvoicePayment, getApplicationIdFromAPI } from "../utils/helperFunctions.js";
 import redisCache from "./RedisCache.js";
 import { Interaction } from "discord.js";
-import { Account } from "../types/account.js";
+import type { Account } from "../types/prisma.js";
 import { AccountResult, ServiceAccountResult } from "../types/index.js";
 import { BOT_CONFIG } from "#utils/config";
 
 const accountsCache = redisCache;
 const SALT: string = process.env.SALT ?? "";
 
+// Cache para el Application ID del bot
+let botApplicationId: string | null = null;
+
+const getBotApplicationId = async (): Promise<string> => {
+  if (botApplicationId) {
+    return botApplicationId;
+  }
+
+  const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
+  const appId = await getApplicationIdFromAPI(BOT_TOKEN);
+
+  if (!appId) {
+    throw new Error("Failed to get bot application ID from Discord API");
+  }
+
+  botApplicationId = appId;
+  log(`Bot Application ID obtained: ${appId}`, "info");
+  return appId;
+};
+
 const connectAccount = async (discord_id: string, discord_username: string, nwc_uri: string): Promise<Account | null> => {
   try {
-    const userAccount = await (AccountModel as any).findOne({ discord_id });
-    if (userAccount) {
-      await accountsCache.delete(`account:${discord_id}`);
-      userAccount.nwc_uri = encryptData(nwc_uri, SALT);
-      await userAccount.save();
+    const prisma = PrismaConfig.getClient();
 
-      return userAccount as Account;
-    }
-
-    const newAccount = new AccountModel({
-      discord_id,
-      discord_username,
-      nwc_uri: encryptData(nwc_uri, SALT),
+    const existingAccount = await prisma.account.findUnique({
+      where: { discord_id }
     });
 
-    await newAccount.save();
+    if (existingAccount) {
+      await accountsCache.delete(`account:${discord_id}`);
 
-    return newAccount as Account;
+      const updatedAccount = await prisma.account.update({
+        where: { discord_id },
+        data: {
+          nwc_uri: encryptData(nwc_uri, SALT),
+        }
+      });
+
+      return updatedAccount;
+    }
+
+    const newAccount = await prisma.account.create({
+      data: {
+        discord_id,
+        discord_username,
+        nwc_uri: encryptData(nwc_uri, SALT),
+      }
+    });
+
+    return newAccount;
   } catch (err: any) {
     console.log(err);
     return null;
@@ -40,44 +70,64 @@ const connectAccount = async (discord_id: string, discord_username: string, nwc_
 
 const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
   try {
-    const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
-    
+    const botAppId = await getBotApplicationId();
+
     const cachedAccount = await accountsCache.get(`account:bot-service`) as ServiceAccountResult;
-    if (cachedAccount && cachedAccount.success) {
-      // Recreate the NWC client since it loses its methods when serialized
-      if (cachedAccount.accountInfo) {
-        const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
-        const botAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
-        if (botAccount && botAccount.bot_nwc_uri) {
-          const botNwcUri = decryptData(botAccount.bot_nwc_uri, SALT);
-          if (botNwcUri) {
-            const nwcClient = new NWCClient({ nostrWalletConnectUrl: botNwcUri });
-            cachedAccount.nwcClient = nwcClient;
+    if (cachedAccount && cachedAccount.success && cachedAccount.encryptedNwcUri) {
+      try {
+        const botNwcUri = decryptData(cachedAccount.encryptedNwcUri, SALT);
+        if (botNwcUri) {
+          const nwcClient = new NWCClient({ nostrWalletConnectUrl: botNwcUri });
+          cachedAccount.nwcClient = nwcClient;
+
+          try {
+            const currentBalance = await nwcClient.getBalance();
+            const updatedBalance = Number(currentBalance.balance.toString()) / 1000;
+            cachedAccount.balance = updatedBalance;
+            log(`Bot service account balance updated from cache: ${updatedBalance} sats`, "info");
             return cachedAccount;
+          } catch (balanceError: any) {
+            log(`Error updating bot service account balance from cache: ${balanceError.message}`, "warn");
+            await accountsCache.delete(`account:bot-service`);
+            log(`Bot service account cache invalidated due to balance update failure`, "info");
           }
         }
+      } catch (decryptError: any) {
+        log(`Error decrypting cached NWC URI: ${decryptError.message}`, "warn");
+        // Invalidar el cache si falla el descifrado
+        await accountsCache.delete(`account:bot-service`);
+        log(`Bot service account cache invalidated due to decryption failure`, "info");
       }
     }
 
     log(`Getting bot service account`, "info");
 
-    let botAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
-    
+    const prisma = PrismaConfig.getClient();
+    let botAccount = await prisma.account.findUnique({
+      where: { discord_id: botAppId }
+    });
+
     if (!botAccount) {
       log(`Bot service account not found, creating new one`, "info");
-      
-      const serviceWalletResult = await createServiceWallet(BOT_TOKEN, "NWC Zap Bot Service");
-      
+
+      const serviceWalletResult = await createServiceWallet(botAppId, "NWC Zap Bot Service");
+
       if (!serviceWalletResult.success) {
         log(`Failed to create bot service wallet: ${serviceWalletResult.error}`, "err");
         return {
           success: false,
           message: `❌ **Failed to create bot service account:** ${serviceWalletResult.error}`
         };
+      }
+
+      if (serviceWalletResult.account) {
+        botAccount = serviceWalletResult.account;
+        log(`Bot service wallet created successfully, using returned account`, "info");
       } else {
+        log(`Bot service wallet created but no account returned`, "err");
         return {
           success: false,
-          message: "❌ **Bot service account creation failed**"
+          message: "❌ **Bot service account creation failed - no account returned**"
         };
       }
     }
@@ -90,7 +140,7 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
       };
     }
 
-    const validationResult = await validateAccount(botNwcUri, "Bot-Service");
+    const validationResult = await validateAccount(botNwcUri, "NWC Zap Bot Service");
     if (!validationResult.success) {
       return {
         success: false,
@@ -103,6 +153,7 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
       nwcClient: validationResult.nwcClient,
       balance: validationResult.balance,
       isServiceAccount: true,
+      encryptedNwcUri: botAccount.bot_nwc_uri,
       accountInfo: {
         type: 'bot-service',
         purpose: 'faucet_management_and_commissions',
@@ -112,7 +163,7 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
 
     await accountsCache.set(`account:bot-service`, createdAccount, 7200000);
     log(`Bot service account validated successfully - Balance: ${validationResult.balance} sats`, "info");
-    
+
     return createdAccount;
   } catch (err: any) {
     log(`Error getting bot service account: ${err.message}`, "err");
@@ -169,7 +220,7 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
     if (cachedAccount && cachedAccount.success) {
       try {
         log(`@${username} - using cached account, updating balance`, "info");
-        
+
         // Recreate the NWC client since it loses its methods when serialized
         if (cachedAccount.userAccount) {
           if (cachedAccount.isServiceAccount && cachedAccount.userAccount.bot_nwc_uri) {
@@ -186,31 +237,71 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
             }
           }
         }
-        
+
         if (cachedAccount.nwcClient && typeof cachedAccount.nwcClient.getBalance === 'function') {
-          const currentBalance = await cachedAccount.nwcClient.getBalance();
-          const updatedBalance = Number(currentBalance.balance.toString()) / 1000;
-          
-          cachedAccount.balance = updatedBalance;
-          
-          log(`@${username} - balance updated: ${updatedBalance} sats`, "info");
-          
-          return cachedAccount;
+          try {
+            const currentBalance = await cachedAccount.nwcClient.getBalance();
+            const updatedBalance = Number(currentBalance.balance.toString()) / 1000;
+
+            cachedAccount.balance = updatedBalance;
+
+            log(`@${username} - balance updated: ${updatedBalance} sats`, "info");
+
+            return cachedAccount;
+          } catch (balanceError: any) {
+            log(`@${username} - error updating cached balance: ${balanceError.message}`, "err");
+            await accountsCache.delete(`account:${discord_id}`);
+            log(`@${username} - account cache invalidated due to balance update failure`, "info");
+          }
         } else {
           log(`@${username} - cached nwcClient is invalid, will recreate account`, "warn");
+          await accountsCache.delete(`account:${discord_id}`);
         }
       } catch (balanceError: any) {
         log(`@${username} - error updating cached balance: ${balanceError.message}`, "err");
+        await accountsCache.delete(`account:${discord_id}`);
       }
     }
-    
-    const userAccount = await (AccountModel as any).findOne({ discord_id });
+
+    const prisma = PrismaConfig.getClient();
+    const userAccount = await prisma.account.findUnique({
+      where: { discord_id }
+    });
+
     if (!userAccount) {
       log(`@${username} doesn't have a registered account, creating bot service wallet`, "info");
-      
+
       const serviceWalletResult = await createServiceWallet(discord_id, username);
-      if (serviceWalletResult.success) {
-        return await getAccountInternal(discord_id, username, isCurrentUser);
+      if (serviceWalletResult.success && serviceWalletResult.account) {
+        // Use the returned account directly instead of recursing
+        const userAccount = serviceWalletResult.account;
+
+        if (userAccount.bot_nwc_uri) {
+          const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
+          if (botNwcUri) {
+            const validationResult = await validateAccount(botNwcUri, username);
+            if (validationResult.success) {
+              log(`@${username} - using newly created bot service account`, "info");
+
+              const createdAccount: AccountResult = {
+                success: true,
+                nwcClient: validationResult.nwcClient,
+                balance: validationResult.balance,
+                userAccount: userAccount,
+                isServiceAccount: true
+              };
+
+              await accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
+              return createdAccount;
+            }
+          }
+        }
+
+        log(`@${username} - newly created service account validation failed`, "err");
+        return {
+          success: false,
+          message: "❌ **Unable to validate newly created account.**\n\nPlease try again later or contact support."
+        };
       } else {
         log(`@${username} - failed to create bot service wallet, cannot provide account`, "err");
         return {
@@ -229,7 +320,7 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
             success: true,
             nwcClient: validationResult.nwcClient,
             balance: validationResult.balance,
-            userAccount: userAccount as Account,
+            userAccount: userAccount,
             isServiceAccount: false
           };
 
@@ -247,12 +338,12 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
         const validationResult = await validateAccount(botNwcUri, username);
         if (validationResult.success) {
           log(`@${username} - using bot service account`, "info");
-          
+
           const createdAccount: AccountResult = {
             success: true,
             nwcClient: validationResult.nwcClient,
             balance: validationResult.balance,
-            userAccount: userAccount as Account,
+            userAccount: userAccount,
             isServiceAccount: true
           };
 
@@ -261,16 +352,52 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
         }
       }
     }
-    
+
     log(`@${username} - no working connections found, creating bot service wallet as fallback`, "info");
-    
+
     const serviceWalletResult = await createServiceWallet(discord_id, username);
-    if (serviceWalletResult.success) {
+    if (serviceWalletResult.success && serviceWalletResult.account) {
       log(`@${username} - bot service wallet created successfully as fallback`, "info");
-      return await getAccountInternal(discord_id, username, isCurrentUser);
+
+      // Use the returned account directly instead of recursing
+      const userAccount = serviceWalletResult.account;
+
+      if (userAccount.bot_nwc_uri) {
+        const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
+        if (botNwcUri) {
+          const validationResult = await validateAccount(botNwcUri, username);
+          if (validationResult.success) {
+            log(`@${username} - using fallback bot service account`, "info");
+
+            const createdAccount: AccountResult = {
+              success: true,
+              nwcClient: validationResult.nwcClient,
+              balance: validationResult.balance,
+              userAccount: userAccount,
+              isServiceAccount: true
+            };
+
+            await accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
+            return createdAccount;
+          }
+        }
+      }
+
+      log(`@${username} - fallback service account validation failed`, "err");
+      if (isCurrentUser) {
+        return {
+          success: false,
+          message: "❌ **Your account connection is not working and we couldn't create a working backup account.**\n\nPlease use the `/connect` command to reconnect your wallet or try again later."
+        };
+      } else {
+        return {
+          success: false,
+          message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to reconnect their wallet or try again later."
+        };
+      }
     } else {
       log(`@${username} - failed to create bot service wallet as fallback`, "err");
-      
+
       if (isCurrentUser) {
         return {
           success: false,
@@ -297,7 +424,7 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
   try {
     const userData = await interaction.guild!.members.fetch(discord_id);
     const isCurrentUser = interaction.user!.id === discord_id;
-    
+
     return await getAccountInternal(discord_id, userData.user.username, isCurrentUser);
   } catch (err: any) {
     log(`Error fetching user data for ${discord_id}: ${err.message}`, "err");
@@ -308,7 +435,7 @@ const getAccount = async (interaction: Interaction, discord_id: string): Promise
   }
 };
 
-const createServiceWallet = async (discord_id: string, discord_username: string): Promise<{ success: boolean; walletId?: string; error?: string }> => {
+const createServiceWallet = async (discord_id: string, discord_username: string): Promise<{ success: boolean; walletId?: string; error?: string; account?: Account }> => {
   try {
     const ALBYHUB_URL = requiredEnvVar("ALBYHUB_URL");
     const ALBYHUB_TOKEN = requiredEnvVar("ALBYHUB_TOKEN");
@@ -351,33 +478,42 @@ const createServiceWallet = async (discord_id: string, discord_username: string)
     }
 
     const responseData = await response.json();
-    
+
     if (responseData.id && responseData.pairingUri) {
       log(`Service wallet created successfully for @${discord_username} with ID: ${responseData.id}`, "info");
-      
-      let userAccount = await (AccountModel as any).findOne({ discord_id });
-      
+
+      const prisma = PrismaConfig.getClient();
+      let userAccount = await prisma.account.findUnique({
+        where: { discord_id }
+      });
+
       if (userAccount) {
-        userAccount.bot_nwc_uri = encryptData(responseData.pairingUri, SALT);
-        userAccount.discord_username = discord_username;
-        await userAccount.save();
+        userAccount = await prisma.account.update({
+          where: { discord_id },
+          data: {
+            bot_nwc_uri: encryptData(responseData.pairingUri, SALT),
+            discord_username: discord_username,
+          }
+        });
         log(`Updated existing account for @${discord_username} with bot NWC URI`, "info");
       } else {
-        userAccount = new AccountModel({
-          discord_id,
-          discord_username,
-          nwc_uri: "",
-          bot_nwc_uri: encryptData(responseData.pairingUri, SALT)
+        userAccount = await prisma.account.create({
+          data: {
+            discord_id,
+            discord_username,
+            nwc_uri: "",
+            bot_nwc_uri: encryptData(responseData.pairingUri, SALT)
+          }
         });
-        await userAccount.save();
         log(`Created new account for @${discord_username} with bot NWC URI`, "info");
       }
-      
+
       await accountsCache.delete(`account:${discord_id}`);
-      
+
       return {
         success: true,
-        walletId: responseData.id.toString()
+        walletId: responseData.id.toString(),
+        account: userAccount
       };
     } else {
       log(`Unexpected response format from Alby Hub for @${discord_username}`, "err");
@@ -399,7 +535,7 @@ const createServiceWallet = async (discord_id: string, discord_username: string)
 const initializeBotAccount = async (): Promise<{ success: boolean; message?: string; balance?: number }> => {
   try {
     log(`Initializing bot service account...`, "info");
-    
+
     const botServiceResult = await getBotServiceAccount();
     if (botServiceResult.success) {
       log(`✅ Bot service account initialized successfully - Balance: ${botServiceResult.balance} sats`, "done");
@@ -409,33 +545,49 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
       };
     } else {
       log(`❌ Bot service account failed: ${botServiceResult.message}`, "err");
-      
-      const BOT_TOKEN = requiredEnvVar("BOT_TOKEN");
-      const existingBotAccount = await (AccountModel as any).findOne({ discord_id: BOT_TOKEN });
-      
+
+      const botAppId = await getBotApplicationId();
+      const prisma = PrismaConfig.getClient();
+      const existingBotAccount = await prisma.account.findUnique({
+        where: { discord_id: botAppId }
+      });
+
       if (existingBotAccount) {
         log(`Deleting existing failed bot account and creating new one...`, "info");
-        
-        await (AccountModel as any).deleteOne({ discord_id: BOT_TOKEN });
+
+        await prisma.account.delete({
+          where: { discord_id: botAppId }
+        });
         await accountsCache.delete(`account:bot-service`);
-        
-        const newServiceWalletResult = await createServiceWallet(BOT_TOKEN, "NWC Zap Bot Service");
-        
-        if (newServiceWalletResult.success) {
+
+        const newServiceWalletResult = await createServiceWallet(botAppId, "NWC Zap Bot Service");
+
+        if (newServiceWalletResult.success && newServiceWalletResult.account) {
           log(`✅ New bot service account created successfully`, "done");
-          
-          const newBotServiceResult = await getBotServiceAccount();
-          if (newBotServiceResult.success) {
-            log(`✅ New bot service account initialized successfully - Balance: ${newBotServiceResult.balance} sats`, "done");
-            return {
-              success: true,
-              balance: newBotServiceResult.balance
-            };
+
+          const botAccount = newServiceWalletResult.account;
+          const botNwcUri = decryptData(botAccount.bot_nwc_uri, SALT);
+
+          if (botNwcUri) {
+            const validationResult = await validateAccount(botNwcUri, "NWC Zap Bot Service");
+            if (validationResult.success) {
+              log(`✅ New bot service account initialized successfully - Balance: ${validationResult.balance} sats`, "done");
+              return {
+                success: true,
+                balance: validationResult.balance
+              };
+            } else {
+              log(`❌ New bot service account validation failed: ${validationResult.message}`, "err");
+              return {
+                success: false,
+                message: `❌ **Failed to validate new bot service account:** ${validationResult.message}`
+              };
+            }
           } else {
-            log(`❌ New bot service account still failing: ${newBotServiceResult.message}`, "err");
+            log(`❌ New bot service account NWC URI not found`, "err");
             return {
               success: false,
-              message: `❌ **Failed to initialize new bot service account:** ${newBotServiceResult.message}`
+              message: "❌ **Failed to initialize new bot service account:** NWC URI not found"
             };
           }
         } else {
@@ -463,7 +615,11 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
 
 const checkBotAccountFunds = async (discord_id: string): Promise<{ hasFunds: boolean; balance?: number; error?: string }> => {
   try {
-    const userAccount = await (AccountModel as any).findOne({ discord_id });
+    const prisma = PrismaConfig.getClient();
+    const userAccount = await prisma.account.findUnique({
+      where: { discord_id }
+    });
+
     if (!userAccount || !userAccount.bot_nwc_uri) {
       return { hasFunds: false };
     }
@@ -492,7 +648,11 @@ const checkBotAccountFunds = async (discord_id: string): Promise<{ hasFunds: boo
 
 const transferBotFundsToUser = async (discord_id: string): Promise<{ success: boolean; message?: string; transferredAmount?: number }> => {
   try {
-    const userAccount = await (AccountModel as any).findOne({ discord_id });
+    const prisma = PrismaConfig.getClient();
+    const userAccount = await prisma.account.findUnique({
+      where: { discord_id }
+    });
+
     if (!userAccount || !userAccount.bot_nwc_uri) {
       return {
         success: false,
@@ -593,8 +753,11 @@ const transferBotFundsToUser = async (discord_id: string): Promise<{ success: bo
 
 const disconnectAccount = async (discord_id: string): Promise<{ success: boolean; message?: string }> => {
   try {
-    const userAccount = await (AccountModel as any).findOne({ discord_id });
-    
+    const prisma = PrismaConfig.getClient();
+    const userAccount = await prisma.account.findUnique({
+      where: { discord_id }
+    });
+
     if (!userAccount) {
       return {
         success: false,
@@ -610,19 +773,21 @@ const disconnectAccount = async (discord_id: string): Promise<{ success: boolean
     }
 
     // Remove user's NWC connection from database
-    userAccount.nwc_uri = "";
-    await userAccount.save();
-    
+    await prisma.account.update({
+      where: { discord_id },
+      data: { nwc_uri: "" }
+    });
+
     // Clear account from cache
     await accountsCache.delete(`account:${discord_id}`);
-    
+
     log(`Successfully disconnected NWC account for user ${discord_id}`, "info");
-    
+
     return {
       success: true,
       message: "✅ **Your wallet has been disconnected successfully.**\n\nYou can now use `/connect` to connect a new wallet, or the bot will use your service account for transactions."
     };
-    
+
   } catch (err: any) {
     log(`Error disconnecting account for user ${discord_id}: ${err.message}`, "err");
     return {
@@ -634,17 +799,20 @@ const disconnectAccount = async (discord_id: string): Promise<{ success: boolean
 
 const getAccountByUsername = async (username: string): Promise<AccountResult> => {
   try {
-    const userAccount = await (AccountModel as any).findOne({ discord_username: username });
-    
+    const prisma = PrismaConfig.getClient();
+    const userAccount = await prisma.account.findFirst({
+      where: { discord_username: username }
+    });
+
     if (!userAccount) {
       return {
         success: false,
         message: "User not found"
       };
     }
-    
+
     return await getAccountInternal(userAccount.discord_id, username, false);
-    
+
   } catch (err: any) {
     log(`Error getting account by username ${username}: ${err.message}`, "err");
     return {

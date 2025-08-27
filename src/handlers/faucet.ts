@@ -1,21 +1,22 @@
-import { Faucet } from "types/faucet.js";
-import FaucetModel from "../schemas/FaucetSchema.js";
+import { PrismaConfig } from "../utils/prisma.js";
+import type { Faucet } from "../types/prisma.js";
 
 const createFaucet = async (owner_id: string, owner_username: string, amount: number, maxUses: number): Promise<Faucet | null> => {
   try {
-    const newFaucet = new FaucetModel({
-      owner_id,
-      owner_username,
-      amount,
-      maxUses,
-      channelId: 0,
-      messageId: 0,
-      claimersIds: [],
-      closed: false,
+    const prisma = PrismaConfig.getClient();
+    const result = await prisma.faucet.create({
+      data: {
+        owner_id,
+        owner_username,
+        amount,
+        maxUses,
+        channelId: "0",
+        messageId: "0",
+        claimersIds: [],
+        closed: false,
+      },
     });
-
-    const result = await newFaucet.save();
-    return result as Faucet;
+    return result;
   } catch (err: any) {
     return null;
   }
@@ -25,44 +26,49 @@ const getFaucet = async (faucet_id: string): Promise<Faucet | null> => {
   if (!faucet_id) return null;
 
   try {
-    const faucet = await (FaucetModel as any).findOne({
-      _id: faucet_id,
+    const prisma = PrismaConfig.getClient();
+    const faucet = await prisma.faucet.findUnique({
+      where: { id: faucet_id },
     });
 
-    if (faucet) return faucet as Faucet;
+    return faucet;
   } catch (err: any) {
     return null;
   }
-
-  return null;
 };
 
 const getAllOpenFaucets = async (discord_id: string): Promise<Faucet[] | null> => {
   if (!discord_id) return null;
 
   try {
-    const faucets = await (FaucetModel as any).find({
-      owner_id: discord_id,
-      closed: false,
+    const prisma = PrismaConfig.getClient();
+    const faucets = await prisma.faucet.findMany({
+      where: {
+        owner_id: discord_id,
+        closed: false,
+      },
     });
 
-    if (faucets) return faucets as Faucet[];
+    return faucets;
   } catch (err: any) {
     return null;
   }
-
-  return null;
 };
 
 const updateFaucetMessage = async (faucet: Faucet, channelId: string, lastMessageId: string): Promise<Faucet | null> => {
   try {
     if (!faucet) return null;
 
-    faucet.channelId = channelId;
-    faucet.messageId = lastMessageId;
-    await faucet.save();
+    const prisma = PrismaConfig.getClient();
+    const updatedFaucet = await prisma.faucet.update({
+      where: { id: faucet.id },
+      data: {
+        channelId,
+        messageId: lastMessageId,
+      },
+    });
 
-    return faucet;
+    return updatedFaucet;
   } catch (err: any) {
     console.log(err);
     return null;
@@ -74,10 +80,15 @@ const addClaimerOnFaucet = async (faucet_id: string, new_claimer: string): Promi
     const faucet = await getFaucet(faucet_id);
     if (!faucet) return null;
 
-    faucet.claimersIds = [...faucet.claimersIds, new_claimer];
-    await faucet.save();
+    const prisma = PrismaConfig.getClient();
+    const updatedFaucet = await prisma.faucet.update({
+      where: { id: faucet_id },
+      data: {
+        claimersIds: [...faucet.claimersIds, new_claimer],
+      },
+    });
 
-    return faucet;
+    return updatedFaucet;
   } catch (err: any) {
     console.log(err);
     return null;
@@ -89,10 +100,15 @@ const closeFaucet = async (faucet_id: string): Promise<Faucet | null> => {
     const faucet = await getFaucet(faucet_id);
     if (!faucet) return null;
 
-    faucet.closed = true;
-    await faucet.save();
+    const prisma = PrismaConfig.getClient();
+    const updatedFaucet = await prisma.faucet.update({
+      where: { id: faucet_id },
+      data: {
+        closed: true,
+      },
+    });
 
-    return faucet;
+    return updatedFaucet;
   } catch (err: any) {
     console.log(err);
     return null;
