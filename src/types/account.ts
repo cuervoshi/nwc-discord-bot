@@ -6,4 +6,6 @@ export interface Account extends Document {
   discord_username: string;
   nwc_uri: string;
   bot_nwc_uri?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

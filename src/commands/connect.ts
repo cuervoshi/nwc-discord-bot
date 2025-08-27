@@ -7,6 +7,8 @@ import {
 import { log } from "../handlers/log.js";
 import { ValidationResult, ConnectionTestResult } from "../types/index.js";
 import { formatter } from "#utils/helperFormatter";
+import { BOT_CONFIG } from "#utils/config";
+import { NWCClient } from "@getalby/sdk";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -81,6 +83,35 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         },
       ]);
 
+    const nwcClient = new NWCClient({ nostrWalletConnectUrl: NWC_URI });
+    const userLud16 = nwcClient.lud16;
+    const botLud16 = BOT_CONFIG.LIGHTNING_DOMAIN ? `${user.username}@${BOT_CONFIG.LIGHTNING_DOMAIN}` : null;
+
+    if (userLud16 || botLud16) {
+      const lightningAddresses = [];
+
+      if (userLud16) {
+        lightningAddresses.push(`⚡ ${userLud16}`);
+      }
+
+      if (botLud16) {
+        lightningAddresses.push(`⚡ ${botLud16}`);
+      }
+
+      embed.addFields([
+        {
+          name: "**Lightning Address**",
+          value: lightningAddresses.join('\n'),
+        }
+      ]);
+
+      if (botLud16) {
+        embed.setFooter({
+          text: "Payments to the bot address will be received in your connected wallet"
+        });
+      }
+    }
+
     // Create components array for buttons
     const components: any[] = [];
 
@@ -99,10 +130,10 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         .setLabel("Recovery funds")
         .setStyle(ButtonStyle.Primary)
         .setEmoji("💰");
-      
+
       const row = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(recoverButton);
-      
+
       components.push(row);
     }
 

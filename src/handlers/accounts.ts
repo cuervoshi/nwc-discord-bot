@@ -539,8 +539,6 @@ const transferBotFundsToUser = async (discord_id: string): Promise<{ success: bo
       description: "Transfer from bot account"
     });
 
-    console.log(invoiceResponse);
-
     if (!invoiceResponse || !invoiceResponse.invoice) {
       return {
         success: false,

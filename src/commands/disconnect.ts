@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from "discord.js";
 import { disconnectAccount } from "../handlers/accounts.js";
 import { log } from "../handlers/log.js";
+import { BOT_CONFIG } from "#utils/config";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -44,6 +45,12 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
           value: "• Your personal wallet connection has been removed\n• The bot will use your service account for transactions\n• You can reconnect anytime using `/connect`\n• Your service account remains active",
         },
       ]);
+
+    if (BOT_CONFIG.LIGHTNING_DOMAIN) {
+      embed.setFooter({
+        text: `Payments to ${user.username}@${BOT_CONFIG.LIGHTNING_DOMAIN} will now be received in your bot account`
+      });
+    }
 
     log(`@${user.username} successfully disconnected their wallet`, "info");
 
