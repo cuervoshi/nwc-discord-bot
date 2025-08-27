@@ -13,10 +13,6 @@ import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
 import { AccountResult } from "../types/index.js";
 import { BOT_CONFIG } from "#utils/config";
 
-interface BalanceResponse {
-  balance: number;
-}
-
 const create = () => {
   const command = new SlashCommandBuilder()
     .setName("balance")
@@ -44,13 +40,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     }
 
     const { nwcClient } = accountResult;
-    const response: BalanceResponse = await nwcClient.getBalance();
-
-    if (!response) {
-      throw new Error("Error getting balance");
-    }
-
-    const balance: number = Math.floor(response.balance / 1000);
+    const balance: number = accountResult.balance || 0;
 
     const embed = new EmbedBuilder()
       .setAuthor({
