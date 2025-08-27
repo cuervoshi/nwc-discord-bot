@@ -1,4 +1,5 @@
 import { createClient, RedisClientType } from 'redis';
+import { log } from './log.js';
 
 class RedisCache {
   private client: RedisClientType;
@@ -10,17 +11,17 @@ class RedisCache {
     });
 
     this.client.on('error', (err) => {
-      console.error('Redis Client Error:', err);
+      log(`Redis Client Error: ${err}`, "err");
       this.isConnected = false;
     });
 
     this.client.on('connect', () => {
-      console.log('✅ Connected to Redis');
+      log('Connected to Redis', "info");
       this.isConnected = true;
     });
 
     this.client.on('disconnect', () => {
-      console.log('❌ Disconnected from Redis');
+      log('Disconnected from Redis', "warn");
       this.isConnected = false;
     });
   }
@@ -30,7 +31,7 @@ class RedisCache {
       try {
         await this.client.connect();
       } catch (error) {
-        console.error('Failed to connect to Redis:', error);
+        log(`Failed to connect to Redis: ${error}`, "err");
         throw error;
       }
     }
@@ -47,7 +48,7 @@ class RedisCache {
       const serializedValue = JSON.stringify(valueToSerialize);
       await this.client.setEx(key, ttl / 1000, serializedValue);
     } catch (error) {
-      console.error('Redis set error:', error);
+      log(`Redis set error: ${error}`, "err");
       throw error;
     }
   }
@@ -61,7 +62,7 @@ class RedisCache {
       }
       return JSON.parse(value as string) as T;
     } catch (error) {
-      console.error('Redis get error:', error);
+      log(`Redis get error: ${error}`, "err");
       return undefined;
     }
   }
@@ -71,7 +72,7 @@ class RedisCache {
       await this.connect();
       await this.client.del(key);
     } catch (error) {
-      console.error('Redis delete error:', error);
+      log(`Redis delete error: ${error}`, "err");
       throw error;
     }
   }
@@ -82,7 +83,7 @@ class RedisCache {
       const result = await this.client.exists(key);
       return result === 1;
     } catch (error) {
-      console.error('Redis exists error:', error);
+      log(`Redis exists error: ${error}`, "err");
       return false;
     }
   }
@@ -92,7 +93,7 @@ class RedisCache {
       await this.connect();
       await this.client.flushAll();
     } catch (error) {
-      console.error('Redis flushAll error:', error);
+      log(`Redis flushAll error: ${error}`, "err");
       throw error;
     }
   }
@@ -115,7 +116,7 @@ class RedisCache {
       
       return { keys, memory };
     } catch (error) {
-      console.error('Redis stats error:', error);
+      log(`Redis stats error: ${error}`, "err");
       return { keys: 0, memory: 'unknown' };
     }
   }

@@ -30,6 +30,12 @@ async function invoke(client: ExtendedClient) {
   client.application.commands.set(commandsArray);
 
   log(`Successfully logged in as ${client.user.tag}!`, "done");
+
+  log(`🏠 Bot is in ${client.guilds.cache.size} guilds:`, "info");
+  client.guilds.cache.forEach(guild => {
+    log(`  - ${guild.name} (${guild.id})`, "info");
+  });
+
 }
 
 export { once, name, invoke };
