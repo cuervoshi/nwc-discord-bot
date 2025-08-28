@@ -11,7 +11,7 @@ import { createZapConfigEmbed, createZapConfigComponents } from "../utils/helper
 
 const create = () => {
   const command = new SlashCommandBuilder()
-    .setName("config-zap")
+    .setName("reaction-config")
     .setDescription("Configure your zap reaction settings");
 
   return command.toJSON();
