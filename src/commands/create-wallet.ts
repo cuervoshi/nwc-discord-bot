@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from "discord.js";
 import { getAccount, createServiceWallet } from "../handlers/accounts.js";
 import { log } from "../handlers/log.js";
-import { formatter } from "#utils/helperFormatter";
+import { formatBalance } from "#utils/helperFormatter";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -28,7 +28,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       const accountType = existingAccount.isServiceAccount ? "bot service wallet" : "connected wallet";
       
       return await interaction.editReply({
-        content: `❌ **You already have a working ${accountType}.**\n\n**Current balance:** ${formatter(0, 0).format(existingAccount.balance || 0)} satoshis\n\nIf you want to create a new bot service wallet, you need to:\n• Disconnect your current wallet using \`/disconnect\` (if you have one connected)\n• Or wait for your current bot service wallet to stop working`
+        content: `❌ **You already have a working ${accountType}.**\n\n**Current balance:** ${formatBalance(existingAccount.balance || 0)} satoshis\n\nIf you want to create a new bot service wallet, you need to:\n• Disconnect your current wallet using \`/disconnect\` (if you have one connected)\n• Or wait for your current bot service wallet to stop working`
       });
     }
 
@@ -76,7 +76,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         },
         {
           name: "Balance",
-          value: `**${formatter(0, 0).format(newAccount.balance || 0)} satoshis**`,
+          value: `**${formatBalance(newAccount.balance || 0)} satoshis**`,
         }
       ])
       .setFooter({

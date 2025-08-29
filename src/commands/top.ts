@@ -2,7 +2,7 @@ import dedent from "dedent-js";
 import { EmbedBuilder, SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
 import { getSumOfDonationAmounts, getTopRanking } from "../handlers/ranking.js";
 import { AuthorConfig } from "../utils/helperConfig.js";
-import { formatter } from "../utils/helperFormatter.js";
+import { formatBalance } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 
 interface TopUser {
@@ -42,7 +42,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
             : ":medal:";
 
         rankOutput += `
-      ${trophy} <@${user.discord_id}>  •  \`${formatter(0, 0).format(
+      ${trophy} <@${user.discord_id}>  •  \`${formatBalance(
           user.amount
         )} sats\`
         `;
@@ -59,7 +59,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
           { name: "TOP 10 • sats sent", value: rankOutput },
           {
             name: "Total sent",
-            value: `${formatter(0, 0).format(totalSent)}`,
+            value: `${formatBalance(totalSent)}`,
           },
           {
             name: "Information",

@@ -6,4 +6,9 @@ const formatter = (minDecimals: number = 2, maxDecimals: number = 2): Intl.Numbe
   });
 };
 
-export { formatter };
+// Helper function to format balance with floor truncation
+const formatBalance = (balance: number): string => {
+  return formatter(0, 0).format(Math.floor(balance));
+};
+
+export { formatter, formatBalance };

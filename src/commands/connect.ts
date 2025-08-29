@@ -6,7 +6,7 @@ import {
 } from "../utils/helperFunctions.js";
 import { log } from "../handlers/log.js";
 import { ValidationResult, ConnectionTestResult } from "../types/index.js";
-import { formatter } from "#utils/helperFormatter";
+import { formatBalance } from "#utils/helperFormatter";
 import { BOT_CONFIG } from "#utils/config";
 import { NWCClient } from "@getalby/sdk";
 
@@ -79,7 +79,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         },
         {
           name: "Balance",
-          value: `**${formatter(0, 0).format(connectionTest.balance)} satoshis**`,
+          value: `**${formatBalance(connectionTest.balance)} satoshis**`,
         },
       ]);
 
@@ -120,7 +120,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       embed.addFields([
         {
           name: "💰 Bot Account Funds Available",
-          value: `You have **${formatter(0, 0).format(botFundsResult.balance)} sats** remaining in your bot account. Click the button below to transfer them to your connected wallet.`,
+          value: `You have **${formatBalance(botFundsResult.balance)} sats** remaining in your bot account. Click the button below to transfer them to your connected wallet.`,
           inline: false
         }
       ]);

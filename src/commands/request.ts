@@ -2,7 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, SlashCommandBuilder, Cha
 import { getAccount } from "../handlers/accounts.js";
 import { EphemeralMessageResponse, FollowUpEphemeralResponse } from "../utils/helperFunctions.js";
 import { AuthorConfig } from "../utils/helperConfig.js";
-import { formatter } from "../utils/helperFormatter.js";
+import { formatBalance } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { AccountResult } from "../types/index.js";
 import { Nip47Transaction } from "@getalby/sdk";
@@ -73,7 +73,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       },
       {
         name: "amount (sats)",
-        value: `${formatter(0, 0).format(amount)}`,
+        value: `${formatBalance(amount)}`,
       },
     ]);
 

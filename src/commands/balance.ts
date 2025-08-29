@@ -7,7 +7,7 @@ import {
   ButtonStyle,
 } from "discord.js";
 import { getAccount, checkBotAccountFunds } from "../handlers/accounts.js";
-import { formatter } from "../utils/helperFormatter.js";
+import { formatBalance } from "../utils/helperFormatter.js";
 import { log } from "../handlers/log.js";
 import { EphemeralMessageResponse } from "../utils/helperFunctions.js";
 import { AccountResult } from "../types/index.js";
@@ -50,7 +50,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       .addFields([
         {
           name: "Balance",
-          value: `**${formatter(0, 0).format(balance)} satoshis**`,
+          value: `**${formatBalance(balance)} satoshis**`,
         }
       ]);
 
@@ -103,7 +103,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         embed.addFields([
           {
             name: "⚠️ Bot Account Funds Available",
-            value: `You have **${formatter(0, 0).format(botFundsResult.balance)} sats** remaining in your bot account. Click the button below to transfer them to your connected wallet.`,
+            value: `You have **${formatBalance(botFundsResult.balance)} sats** remaining in your bot account. Click the button below to transfer them to your connected wallet.`,
             inline: false
           }
         ]);

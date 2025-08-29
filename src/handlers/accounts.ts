@@ -667,7 +667,7 @@ const checkBotAccountFunds = async (discord_id: string): Promise<{ hasFunds: boo
       return { hasFunds: false };
     }
 
-    const balance = Math.floor(validationResult.balance - BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
+    const balance = Math.floor(validationResult.balance - 1);
 
     return {
       hasFunds: balance > 1,
