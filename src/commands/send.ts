@@ -65,10 +65,16 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       return EphemeralMessageResponse(interaction, isValidAmount.content);
     }
 
-    const invoice: LnUrlRequestInvoiceResponse = await lnurl.requestInvoice({
-      lnUrlOrAddress: address,
-      tokens: amount as Satoshis,
-    });
+    let invoice: LnUrlRequestInvoiceResponse;
+    try {
+      invoice = await lnurl.requestInvoice({
+        lnUrlOrAddress: address,
+        tokens: amount as Satoshis,
+      });
+    } catch (invoiceError: any) {
+      log(`Invoice creation failed for @${user.username} - Address: ${address}, Amount: ${amount}, Error: ${invoiceError.message}`, "err");
+      return EphemeralMessageResponse(interaction, "❌ **Failed to create invoice.**\n\nPlease check that the Lightning Address is correct and try again.");
+    }
 
     if (invoice && invoice.invoice) {
       log(
