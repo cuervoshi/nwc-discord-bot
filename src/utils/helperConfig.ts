@@ -4,8 +4,8 @@ interface AuthorConfigType {
 }
 
 const AuthorConfig: AuthorConfigType = {
-  name: "NWC Zap Bot",
-  iconURL: "https://cdn.discordapp.com/avatars/1137772340466438306/2bafb5be3bb6cbfc526c075803219b99?size=256",
+  name: "LN Zap Bot",
+  iconURL: "https://cdn.discordapp.com/app-icons/1137772340466438306/af21995baf3b5a3f25eb5d073f42c608.png?size=256",
 };
 
 export { AuthorConfig };
