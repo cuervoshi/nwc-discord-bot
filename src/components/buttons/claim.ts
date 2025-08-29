@@ -12,9 +12,9 @@ import { SimpleLock } from "../../handlers/SimpleLock.js";
 import { AuthorConfig } from "../../utils/helperConfig.js";
 import {
   EphemeralMessageResponse,
-  FollowUpEphemeralResponse,
-  handleInvoicePayment
+  FollowUpEphemeralResponse
 } from "../../utils/helperFunctions.js";
+import { handleInvoicePayment } from "../../handlers/payments.js";
 import { Faucet } from "../../types/index.js";
 import { NWCClient } from "@getalby/sdk";
 

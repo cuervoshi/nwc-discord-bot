@@ -4,9 +4,9 @@ import {
   EphemeralMessageResponse,
   validateAndDecodeBOLT11,
   validateAmountAndBalance,
-  isBOLT11Expired,
-  handleInvoicePayment
+  isBOLT11Expired
 } from "../utils/helperFunctions.js";
+import { handleInvoicePayment } from "../handlers/payments.js";
 import { log } from "../handlers/log.js";
 import { BOLT11ValidationResult, BalanceValidationResult, AccountResult } from "../types/index.js";
 
@@ -67,7 +67,7 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
 
     const { nwcClient, balance } = accountResult;
 
-    const balanceValidation: BalanceValidationResult = validateAmountAndBalance(amount || 0, balance);
+    const balanceValidation: BalanceValidationResult = validateAmountAndBalance(amount || 0, balance, accountResult.isServiceAccount || false);
     if (!balanceValidation.status) {
       log(`@${user.username} - Insufficient balance: ${balanceValidation.content}`, "err");
       await EphemeralMessageResponse(interaction, balanceValidation.content);

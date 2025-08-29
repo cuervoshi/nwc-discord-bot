@@ -59,7 +59,6 @@ const processZap = async (
   
   try {
     const result = await zap(
-      null,
       user,
       receiver,
       userZapAmount,

@@ -5,8 +5,6 @@ import { TextChannel, BaseInteraction } from "discord.js";
 import { ValidationResult, ConnectionTestResult, BalanceValidationResult, BOLT11ValidationResult } from "../types/index.js";
 import { formatter } from "./helperFormatter.js";
 import { BOT_CONFIG } from "./config.js";
-import { getBotServiceAccount } from "../handlers/accounts.js";
-import { log } from "../handlers/log.js";
 
 export const signupCache = redisCache;
 
@@ -81,7 +79,7 @@ export const requiredEnvVar = (key: string): string => {
   return envVar;
 };
 
-const validateAmountAndBalance = (amount: number, balance: number): BalanceValidationResult => {
+const validateAmountAndBalance = (amount: number, balance: number, isServiceAccount: boolean = false): BalanceValidationResult => {
   if (amount <= 0)
     return {
       status: false,
@@ -94,8 +92,8 @@ const validateAmountAndBalance = (amount: number, balance: number): BalanceValid
       content: `You don't have enough balance to perform this action. \nRequired: ${amount} - balance in your wallet: ${formatter(0, 0).format(balance)}`,
     };
 
-  const minReserve = BOT_CONFIG.MIN_ROUTING_FEE_RESERVE;
-  const routingFee = Math.ceil(balance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
+  const minReserve = isServiceAccount ? 1 : BOT_CONFIG.MIN_ROUTING_FEE_RESERVE;
+  const routingFee = isServiceAccount ? Math.ceil(amount * BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION) : Math.ceil(balance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
   const totalReserve = Math.max(routingFee, minReserve);
 
   if (balance < totalReserve) {
@@ -217,88 +215,7 @@ export const isBOLT11Expired = (decodedBOLT11: BOLT11ValidationResult['decoded']
   return currentTime > expiryTime;
 };
 
-export const handleInvoicePayment = async (
-  nwcClient: NWCClient,
-  invoice: string,
-  isServiceAccount: boolean,
-  username?: string
-): Promise<{ success: boolean; preimage?: string; fees_paid?: number; error?: string }> => {
-  try {
-    if (!isServiceAccount) {
-      const response = await nwcClient.payInvoice({
-        invoice: invoice,
-      });
 
-      if (!response || !response.preimage) {
-        return { success: false, error: "Error paying invoice" };
-      }
-
-      return {
-        success: true,
-        preimage: response.preimage,
-        fees_paid: response.fees_paid ? Number(response.fees_paid.toString()) / 1000 : 0
-      };
-    }
-
-    const decoded = bolt11.decode(invoice);
-    const invoiceAmount = decoded.satoshis || Math.floor(Number(decoded.millisatoshis) / 1000);
-
-    const commissionAmount = invoiceAmount * BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION;
-    const paymentResponse = await nwcClient.payInvoice({
-      invoice: invoice,
-    });
-
-    if (!paymentResponse || !paymentResponse.preimage) {
-      return { success: false, error: "Error paying invoice" };
-    }
-
-    const feesPaid = paymentResponse.fees_paid ? Number(paymentResponse.fees_paid.toString()) / 1000 : 0;
-    const commissionToPay = commissionAmount - feesPaid;
-    const additionalCommission = commissionToPay > 0.5 ? Math.ceil(commissionToPay) : 0;
-
-    if (additionalCommission > 0) {
-      try {
-        const botServiceAccount = await getBotServiceAccount();
-        if (!botServiceAccount.success || !botServiceAccount.nwcClient) {
-          log("Warning: Could not get bot service account for commission payment", "warn");
-        } else {
-          const commissionInvoice = await botServiceAccount.nwcClient.makeInvoice({
-            amount: additionalCommission * 1000,
-            description: `Commission payment for ${invoiceAmount} sats transfer${username ? ` from ${username}` : ''}`,
-          });
-
-          if (commissionInvoice && commissionInvoice.invoice) {
-            const commissionPayment = await nwcClient.payInvoice({
-              invoice: commissionInvoice.invoice,
-            });
-
-            if (commissionPayment && commissionPayment.preimage) {
-              log(`Commission payment successful: ${additionalCommission} sats`, "info");
-            } else {
-              log("Warning: Commission payment failed, but main payment was successful", "warn");
-            }
-          }
-        }
-      } catch (commissionError: any) {
-        log(`Warning: Commission payment error: ${commissionError.message}`, "warn");
-      }
-    } else {
-      log(`No additional commission charged (commission to pay: ${commissionToPay.toFixed(3)} sats)`, "info");
-    }
-
-    return {
-      success: true,
-      preimage: paymentResponse.preimage,
-      fees_paid: feesPaid
-    };
-
-  } catch (error: any) {
-    return {
-      success: false,
-      error: error.message || "Unknown error occurred"
-    };
-  }
-};
 
 const formatBalanceMessage = (balance: number, additionalInfo?: string): any => {
   const formattedBalance = balance.toLocaleString();

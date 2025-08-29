@@ -65,7 +65,6 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
       : `${user.username} sent you ${amount} sats through discord`;
 
     const result: ZapResult = await zap(
-      interaction,
       user,
       receiverData.user,
       amount,

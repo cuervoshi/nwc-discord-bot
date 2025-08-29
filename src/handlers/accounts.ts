@@ -2,7 +2,8 @@ import { PrismaConfig } from "../utils/prisma.js";
 import { encryptData, decryptData } from "../utils/crypto.js";
 import { NWCClient } from "@getalby/sdk";
 import { log } from "./log.js";
-import { validateNWCURI, testNWCConnection, requiredEnvVar, handleInvoicePayment, getApplicationIdFromAPI } from "../utils/helperFunctions.js";
+import { validateNWCURI, testNWCConnection, requiredEnvVar, getApplicationIdFromAPI } from "../utils/helperFunctions.js";
+import { handleInvoicePayment } from "./payments.js";
 import redisCache from "./RedisCache.js";
 import { Interaction } from "discord.js";
 import type { Account } from "../types/prisma.js";
@@ -11,8 +12,6 @@ import { BOT_CONFIG } from "#utils/config";
 
 const accountsCache = redisCache;
 const SALT: string = process.env.SALT ?? "";
-
-// Cache para el Application ID del bot
 let botApplicationId: string | null = null;
 
 const getBotApplicationId = async (): Promise<string> => {
@@ -273,7 +272,6 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
 
       const serviceWalletResult = await createServiceWallet(discord_id, username);
       if (serviceWalletResult.success && serviceWalletResult.account) {
-        // Use the returned account directly instead of recursing
         const userAccount = serviceWalletResult.account;
 
         if (userAccount.bot_nwc_uri) {
@@ -359,7 +357,6 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
     if (serviceWalletResult.success && serviceWalletResult.account) {
       log(`@${username} - bot service wallet created successfully as fallback`, "info");
 
-      // Use the returned account directly instead of recursing
       const userAccount = serviceWalletResult.account;
 
       if (userAccount.bot_nwc_uri) {
@@ -422,10 +419,33 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
 
 const getAccount = async (interaction: Interaction, discord_id: string): Promise<AccountResult> => {
   try {
-    const userData = await interaction.guild!.members.fetch(discord_id);
     const isCurrentUser = interaction.user!.id === discord_id;
+    let username: string;
 
-    return await getAccountInternal(discord_id, userData.user.username, isCurrentUser);
+    if (isCurrentUser) {
+      username = interaction.user!.username;
+    } else {
+      if (interaction.guild) {
+        try {
+          const userData = await interaction.guild.members.fetch(discord_id);
+          username = userData.user.username;
+        } catch (guildErr: any) {
+          log(`Error fetching user from guild for ${discord_id}: ${guildErr.message}`, "err");
+          return {
+            success: false,
+            message: "❌ **Error fetching user data.**\n\nPlease try again later."
+          };
+        }
+      } else {
+        log(`Cannot fetch user data for ${discord_id} in DM context`, "err");
+        return {
+          success: false,
+          message: "❌ **Cannot fetch user data in DM.**\n\nThis command requires guild context to fetch other users."
+        };
+      }
+    }
+
+    return await getAccountInternal(discord_id, username, isCurrentUser);
   } catch (err: any) {
     log(`Error fetching user data for ${discord_id}: ${err.message}`, "err");
     return {
