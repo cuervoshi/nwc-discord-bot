@@ -9,6 +9,7 @@ import { Interaction } from "discord.js";
 import type { Account } from "../types/prisma.js";
 import { AccountResult, ServiceAccountResult } from "../types/index.js";
 import { BOT_CONFIG } from "#utils/config";
+import { AuthorConfig } from "#utils/helperConfig";
 
 const accountsCache = redisCache;
 const SALT: string = process.env.SALT ?? "";
@@ -109,7 +110,7 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
     if (!botAccount) {
       log(`Bot service account not found, creating new one`, "info");
 
-      const serviceWalletResult = await createServiceWallet(botAppId, "NWC Zap Bot Service");
+      const serviceWalletResult = await createServiceWallet(botAppId, AuthorConfig.name);
 
       if (!serviceWalletResult.success) {
         log(`Failed to create bot service wallet: ${serviceWalletResult.error}`, "err");
@@ -139,7 +140,7 @@ const getBotServiceAccount = async (): Promise<ServiceAccountResult> => {
       };
     }
 
-    const validationResult = await validateAccount(botNwcUri, "NWC Zap Bot Service");
+    const validationResult = await validateAccount(botNwcUri, AuthorConfig.name);
     if (!validationResult.success) {
       return {
         success: false,
@@ -592,7 +593,7 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
 
         await accountsCache.delete(`account:bot-service`);
 
-        const newServiceWalletResult = await createServiceWallet(botAppId, "NWC Zap Bot Service");
+        const newServiceWalletResult = await createServiceWallet(botAppId, AuthorConfig.name);
 
         if (newServiceWalletResult.success && newServiceWalletResult.account) {
           log(`✅ New bot service account created successfully`, "done");
@@ -601,7 +602,7 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
           const botNwcUri = decryptData(botAccount.bot_nwc_uri, SALT);
 
           if (botNwcUri) {
-            const validationResult = await validateAccount(botNwcUri, "NWC Zap Bot Service");
+            const validationResult = await validateAccount(botNwcUri, AuthorConfig.name);
             if (validationResult.success) {
               log(`✅ New bot service account initialized successfully - Balance: ${validationResult.balance} sats`, "done");
               return {
