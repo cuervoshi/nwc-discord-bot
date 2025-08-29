@@ -1,5 +1,6 @@
 import { log } from "../../handlers/log.js";
-import { validateAmountAndBalance, formatErrorMessage, formatSuccessMessage, handleInvoicePayment } from "../../utils/helperFunctions.js";
+import { validateAmountAndBalance, formatErrorMessage, formatSuccessMessage } from "../../utils/helperFunctions.js";
+import { handleInvoicePayment } from "../../handlers/payments.js";
 import { getAccount, getBotServiceAccount } from "../../handlers/accounts.js";
 import { FAUCET_CONFIG, BOT_CONFIG } from "../../utils/config.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
@@ -45,7 +46,7 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     const satsPerUser = Math.floor(amount / users);
     const totalCost = satsPerUser * users;
 
-    const balanceValidation: BalanceValidationResult = validateAmountAndBalance(totalCost, userBalance || 0);
+    const balanceValidation: BalanceValidationResult = validateAmountAndBalance(totalCost, userBalance || 0, userAccount.isServiceAccount || false);
 
     const routingFee = Math.ceil(userBalance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
     const totalReserve = Math.max(routingFee, BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);

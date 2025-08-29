@@ -1,6 +1,7 @@
 import { getAccountByUsername } from '../handlers/accounts.js';
 import { log } from '../handlers/log.js';
 import { AccountResult } from '../types/index.js';
+import bolt11 from 'bolt11';
 
 interface InvoiceResult {
   success: boolean;
@@ -105,9 +106,9 @@ export async function handleLud16Callback(req: any, res: any) {
   }
   
   try {
-    log(`LNURL callback request for ${username} - Amount: ${validatedAmount}`, "info");
+    log(`LNURL callback request for ${username} - Amount: ${validatedAmount} sats`, "info");
     
-    const invoiceResult = await createInvoiceForUser(username, amount, validatedComment);
+    const invoiceResult = await createInvoiceForUser(username, Number(amount), validatedComment);
     
     if (!invoiceResult.success) {
       log(`LNURL callback error for ${username}: ${invoiceResult.error}`, "err");
@@ -134,9 +135,31 @@ export async function handleLud16Callback(req: any, res: any) {
     
     log(`LNURL callback success for ${username} - Invoice created`, "info");
     
+    // Extract invoice from the payment request to create verify URL
+    let verifyUrl = null;
+    if (invoiceResult.pr) {
+      try {
+        // Decode the BOLT11 invoice to get the payment hash
+        const decoded = bolt11.decode(invoiceResult.pr);
+        if (decoded && decoded.tagsObject && decoded.tagsObject.payment_hash) {
+          // Construct the verify URL using the same base URL as the callback
+          const protocol = req.protocol;
+          const host = req.get('host');
+          verifyUrl = `${protocol}://${host}/lnurl/${username}/verify/${decoded.tagsObject.payment_hash}`;
+        }
+      } catch (decodeError: any) {
+        log(`Error decoding BOLT11 invoice for verify URL: ${decodeError.message}`, "warn");
+        // Fallback to using the full invoice if decoding fails
+        const protocol = req.protocol;
+        const host = req.get('host');
+        verifyUrl = `${protocol}://${host}/lnurl/${username}/verify/${encodeURIComponent(invoiceResult.pr)}`;
+      }
+    }
+    
     return res.json({
       pr: invoiceResult.pr,
-      routes: []
+      routes: [],
+      verify: verifyUrl
     });
     
   } catch (error: any) {

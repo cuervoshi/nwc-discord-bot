@@ -2,9 +2,9 @@ import { SlashCommandBuilder, ChatInputCommandInteraction } from "discord.js";
 import { getAccount } from "../handlers/accounts.js";
 import {
   EphemeralMessageResponse,
-  validateAmountAndBalance,
-  handleInvoicePayment,
+  validateAmountAndBalance
 } from "../utils/helperFunctions.js";
+import { handleInvoicePayment } from "../handlers/payments.js";
 import lnurl from "lnurl-pay";
 import { log } from "../handlers/log.js";
 import { LnUrlRequestInvoiceResponse, Satoshis } from "lnurl-pay/dist/types/types.js";
@@ -59,17 +59,22 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
     }
 
     const balanceInSats: number = wallet.balance || 0;
-
-    const isValidAmount: BalanceValidationResult = validateAmountAndBalance(amount, balanceInSats);
+    const isValidAmount: BalanceValidationResult = validateAmountAndBalance(amount, balanceInSats, wallet.isServiceAccount || false);
 
     if (!isValidAmount.status) {
       return EphemeralMessageResponse(interaction, isValidAmount.content);
     }
 
-    const invoice: LnUrlRequestInvoiceResponse = await lnurl.requestInvoice({
-      lnUrlOrAddress: address,
-      tokens: amount as Satoshis,
-    });
+    let invoice: LnUrlRequestInvoiceResponse;
+    try {
+      invoice = await lnurl.requestInvoice({
+        lnUrlOrAddress: address,
+        tokens: amount as Satoshis,
+      });
+    } catch (invoiceError: any) {
+      log(`Invoice creation failed for @${user.username} - Address: ${address}, Amount: ${amount}, Error: ${invoiceError.message}`, "err");
+      return EphemeralMessageResponse(interaction, "❌ **Failed to create invoice.**\n\nPlease check that the Lightning Address is correct and try again.");
+    }
 
     if (invoice && invoice.invoice) {
       log(

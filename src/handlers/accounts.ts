@@ -2,7 +2,8 @@ import { PrismaConfig } from "../utils/prisma.js";
 import { encryptData, decryptData } from "../utils/crypto.js";
 import { NWCClient } from "@getalby/sdk";
 import { log } from "./log.js";
-import { validateNWCURI, testNWCConnection, requiredEnvVar, handleInvoicePayment, getApplicationIdFromAPI } from "../utils/helperFunctions.js";
+import { validateNWCURI, testNWCConnection, requiredEnvVar, getApplicationIdFromAPI } from "../utils/helperFunctions.js";
+import { handleInvoicePayment } from "./payments.js";
 import redisCache from "./RedisCache.js";
 import { Interaction } from "discord.js";
 import type { Account } from "../types/prisma.js";
@@ -11,8 +12,6 @@ import { BOT_CONFIG } from "#utils/config";
 
 const accountsCache = redisCache;
 const SALT: string = process.env.SALT ?? "";
-
-// Cache para el Application ID del bot
 let botApplicationId: string | null = null;
 
 const getBotApplicationId = async (): Promise<string> => {
@@ -273,7 +272,6 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
 
       const serviceWalletResult = await createServiceWallet(discord_id, username);
       if (serviceWalletResult.success && serviceWalletResult.account) {
-        // Use the returned account directly instead of recursing
         const userAccount = serviceWalletResult.account;
 
         if (userAccount.bot_nwc_uri) {
@@ -332,12 +330,13 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
       }
     }
 
+    // Check if user has a bot service account
     if (userAccount.bot_nwc_uri) {
       const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
       if (botNwcUri) {
         const validationResult = await validateAccount(botNwcUri, username);
         if (validationResult.success) {
-          log(`@${username} - using bot service account`, "info");
+          log(`@${username} - using existing bot service account`, "info");
 
           const createdAccount: AccountResult = {
             success: true,
@@ -349,66 +348,79 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
 
           await accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
           return createdAccount;
+        } else {
+          log(`@${username} - existing bot service account validation failed`, "err");
+          // Don't create a new account, inform the user about the connection issue
+          if (isCurrentUser) {
+            return {
+              success: false,
+              message: "❌ **Your bot service account connection is not working.**\n\nPlease use the `/create-wallet` command to regenerate your bot service account or try again later."
+            };
+          } else {
+            return {
+              success: false,
+              message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to use the `/create-wallet` command to regenerate their account."
+            };
+          }
         }
       }
     }
 
-    log(`@${username} - no working connections found, creating bot service wallet as fallback`, "info");
+    // User doesn't have a bot service account, create one only if they don't have any account
+    if (!userAccount.nwc_uri && !userAccount.bot_nwc_uri) {
+      log(`@${username} - no accounts found, creating bot service wallet`, "info");
 
-    const serviceWalletResult = await createServiceWallet(discord_id, username);
-    if (serviceWalletResult.success && serviceWalletResult.account) {
-      log(`@${username} - bot service wallet created successfully as fallback`, "info");
+      const serviceWalletResult = await createServiceWallet(discord_id, username);
+      if (serviceWalletResult.success && serviceWalletResult.account) {
+        const userAccount = serviceWalletResult.account;
 
-      // Use the returned account directly instead of recursing
-      const userAccount = serviceWalletResult.account;
+        if (userAccount.bot_nwc_uri) {
+          const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
+          if (botNwcUri) {
+            const validationResult = await validateAccount(botNwcUri, username);
+            if (validationResult.success) {
+              log(`@${username} - using newly created bot service account`, "info");
 
-      if (userAccount.bot_nwc_uri) {
-        const botNwcUri = decryptData(userAccount.bot_nwc_uri, SALT);
-        if (botNwcUri) {
-          const validationResult = await validateAccount(botNwcUri, username);
-          if (validationResult.success) {
-            log(`@${username} - using fallback bot service account`, "info");
+              const createdAccount: AccountResult = {
+                success: true,
+                nwcClient: validationResult.nwcClient,
+                balance: validationResult.balance,
+                userAccount: userAccount,
+                isServiceAccount: true
+              };
 
-            const createdAccount: AccountResult = {
-              success: true,
-              nwcClient: validationResult.nwcClient,
-              balance: validationResult.balance,
-              userAccount: userAccount,
-              isServiceAccount: true
-            };
-
-            await accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
-            return createdAccount;
+              await accountsCache.set(`account:${discord_id}`, createdAccount, 7200000);
+              return createdAccount;
+            }
           }
         }
-      }
 
-      log(`@${username} - fallback service account validation failed`, "err");
-      if (isCurrentUser) {
+        log(`@${username} - newly created service account validation failed`, "err");
         return {
           success: false,
-          message: "❌ **Your account connection is not working and we couldn't create a working backup account.**\n\nPlease use the `/connect` command to reconnect your wallet or try again later."
+          message: "❌ **Unable to validate newly created account.**\n\nPlease try again later or contact support."
         };
       } else {
+        log(`@${username} - failed to create bot service wallet`, "err");
         return {
           success: false,
-          message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to reconnect their wallet or try again later."
+          message: "❌ **Unable to create account.**\n\nPlease try again later or contact support."
         };
       }
+    }
+
+    // If we reach here, user has an account but both connections failed
+    log(`@${username} - all account connections failed`, "err");
+    if (isCurrentUser) {
+      return {
+        success: false,
+        message: "❌ **Your account connections are not working.**\n\nPlease use the `/connect` command to reconnect your wallet or `/create-wallet` to regenerate your bot service account."
+      };
     } else {
-      log(`@${username} - failed to create bot service wallet as fallback`, "err");
-
-      if (isCurrentUser) {
-        return {
-          success: false,
-          message: "❌ **Your account connection is not working and we couldn't create a backup account.**\n\nPlease use the `/connect` command to reconnect your wallet or try again later."
-        };
-      } else {
-        return {
-          success: false,
-          message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to reconnect their wallet or try again later."
-        };
-      }
+      return {
+        success: false,
+        message: "❌ **The user you're trying to send to doesn't have a working account connection.**\n\nThey need to reconnect their wallet or regenerate their bot service account."
+      };
     }
 
   } catch (err: any) {
@@ -422,10 +434,33 @@ const getAccountInternal = async (discord_id: string, username: string, isCurren
 
 const getAccount = async (interaction: Interaction, discord_id: string): Promise<AccountResult> => {
   try {
-    const userData = await interaction.guild!.members.fetch(discord_id);
     const isCurrentUser = interaction.user!.id === discord_id;
+    let username: string;
 
-    return await getAccountInternal(discord_id, userData.user.username, isCurrentUser);
+    if (isCurrentUser) {
+      username = interaction.user!.username;
+    } else {
+      if (interaction.guild) {
+        try {
+          const userData = await interaction.guild.members.fetch(discord_id);
+          username = userData.user.username;
+        } catch (guildErr: any) {
+          log(`Error fetching user from guild for ${discord_id}: ${guildErr.message}`, "err");
+          return {
+            success: false,
+            message: "❌ **Error fetching user data.**\n\nPlease try again later."
+          };
+        }
+      } else {
+        log(`Cannot fetch user data for ${discord_id} in DM context`, "err");
+        return {
+          success: false,
+          message: "❌ **Cannot fetch user data in DM.**\n\nThis command requires guild context to fetch other users."
+        };
+      }
+    }
+
+    return await getAccountInternal(discord_id, username, isCurrentUser);
   } catch (err: any) {
     log(`Error fetching user data for ${discord_id}: ${err.message}`, "err");
     return {

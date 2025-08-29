@@ -1,12 +1,12 @@
 import { getAccountInternal } from "../handlers/accounts.js";
 import { log } from "../handlers/log.js";
-import { validateAmountAndBalance, handleInvoicePayment } from "../utils/helperFunctions.js";
+import { validateAmountAndBalance } from "../utils/helperFunctions.js";
+import { handleInvoicePayment } from "./payments.js";
 import { Interaction, User } from "discord.js";
 import { ZapResult, BalanceValidationResult } from "../types/index.js";
 import { PrismaConfig } from "../utils/prisma.js";
 
 const zap = async (
-  interaction: Interaction,
   sender: User,
   receiver: User,
   amount: number,
@@ -47,7 +47,8 @@ const zap = async (
     const senderBalance = senderWallet.balance || 0;
     const isValidAmount: BalanceValidationResult = validateAmountAndBalance(
       amount,
-      senderBalance
+      senderBalance,
+      senderWallet.isServiceAccount || false
     );
 
     if (!isValidAmount.status)

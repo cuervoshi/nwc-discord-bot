@@ -1,7 +1,8 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonInteraction } from "discord.js";
 import { getAccount } from "../../handlers/accounts.js";
 import { log } from "../../handlers/log.js";
-import { FollowUpEphemeralResponse, handleInvoicePayment } from "../../utils/helperFunctions.js";
+import { FollowUpEphemeralResponse } from "../../utils/helperFunctions.js";
+import { handleInvoicePayment } from "../../handlers/payments.js";
 import { AccountResult } from "../../types/index.js";
 
 const customId = "pay";
