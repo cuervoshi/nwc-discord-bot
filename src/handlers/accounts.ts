@@ -747,9 +747,9 @@ const transferBotFundsToUser = async (discord_id: string): Promise<{ success: bo
       };
     }
 
-    const routingFee = Math.ceil(botValidationResult.balance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
-    const totalReserve = Math.max(routingFee, BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
-    const botBalance = Math.floor(botValidationResult.balance - totalReserve);
+    const routingFee = botValidationResult.balance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE;
+    const botBalance = Math.floor(botValidationResult.balance - routingFee);
+    
     if (botBalance <= 1) {
       return {
         success: false,
