@@ -12,6 +12,7 @@ import {
 import { log } from "../handlers/log.js";
 import { AccountResult } from "../types/index.js";
 import { FAUCET_CONFIG, BOT_CONFIG } from "#utils/config";
+import { formatBalance } from "#utils/helperFormatter";
 
 const create = () => {
   const command = new SlashCommandBuilder()
@@ -46,8 +47,8 @@ const invoke = async (interaction: ChatInputCommandInteraction) => {
         })
         .setDescription(
           `❌ **You don't have enough balance to create a faucet.**\n\n` +
-          `💰 **Your current balance:** ${balance.toLocaleString()} satoshis\n` +
-          `💳 **Maximum available for use:** ${Math.floor(balance * (1 - BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION)).toLocaleString()} satoshis (${(BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION * 100).toFixed(1)}% reserved for routing fees)\n` +
+          `💰 **Your current balance:** ${formatBalance(balance)} satoshis\n` +
+          `💳 **Maximum available for use:** ${Math.max(Math.floor(balance * (1 - BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION)), 1).toLocaleString()} satoshis (${(BOT_CONFIG.SERVICE_ACCOUNT_COMMISSION * 100).toFixed(1)}% reserved for routing fees)\n` +
           `🎁 **Minimum to gift:** 1 satoshi\n` +
           `📊 **Total minimum needed:** ${FAUCET_CONFIG.MINIMUM_BALANCE} satoshis\n\n` +
           `**You need at least ${FAUCET_CONFIG.MINIMUM_BALANCE - balance} more satoshis to create a faucet.**\n\n` +
