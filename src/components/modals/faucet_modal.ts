@@ -6,6 +6,7 @@ import { FAUCET_CONFIG, BOT_CONFIG } from "../../utils/config.js";
 import { createFaucet, updateFaucetMessage } from "../../handlers/faucet.js";
 import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ModalSubmitInteraction } from "discord.js";
 import { AccountResult, ServiceAccountResult, BalanceValidationResult } from "../../types/index.js";
+import { formatBalance } from "#utils/helperFormatter";
 
 const customId = "faucet_modal";
 
@@ -49,13 +50,13 @@ const invoke = async (interaction: ModalSubmitInteraction): Promise<void> => {
     const balanceValidation: BalanceValidationResult = validateAmountAndBalance(totalCost, userBalance || 0, userAccount.isServiceAccount || false);
 
     const routingFee = Math.ceil(userBalance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
-    const totalReserve = Math.max(routingFee, BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
+    const totalReserve = Math.max(routingFee, userAccount.isServiceAccount ? 1 : BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
 
     if (!balanceValidation.status) {
       const availableBalance = Math.max(0, userBalance - totalReserve);
       const errorContent = `${balanceValidation.content}\n\n` +
-        `**Your available balance:** ${availableBalance.toLocaleString()} satoshis (routing fee is reserved - ${totalReserve} sats)\n` +
-        `**Total needed:** ${totalCost.toLocaleString()} satoshis`;
+        `**Your available balance:** ${formatBalance(availableBalance)} satoshis (routing fee is reserved - ${totalReserve} sats)\n` +
+        `**Total needed:** ${formatBalance(totalCost)} satoshis`;
 
       await interaction.editReply(formatErrorMessage("Insufficient balance", errorContent));
       return;
