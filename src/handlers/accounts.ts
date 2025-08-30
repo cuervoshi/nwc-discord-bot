@@ -667,7 +667,9 @@ const checkBotAccountFunds = async (discord_id: string): Promise<{ hasFunds: boo
       return { hasFunds: false };
     }
 
-    const balance = Math.floor(validationResult.balance - 1);
+    const routingFee = Math.ceil(validationResult.balance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
+    const totalReserve = Math.max(routingFee, 1);
+    const balance = Math.floor(validationResult.balance - totalReserve);
 
     return {
       hasFunds: balance > 1,
@@ -732,7 +734,9 @@ const transferBotFundsToUser = async (discord_id: string): Promise<{ success: bo
       };
     }
 
-    const botBalance = Math.floor(botValidationResult.balance - 1);
+    const routingFee = Math.ceil(botValidationResult.balance * BOT_CONFIG.ROUTING_FEE_PERCENTAGE);
+    const totalReserve = Math.max(routingFee, BOT_CONFIG.MIN_ROUTING_FEE_RESERVE);
+    const botBalance = Math.floor(botValidationResult.balance - totalReserve);
     if (botBalance <= 1) {
       return {
         success: false,
