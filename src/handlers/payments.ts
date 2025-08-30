@@ -88,10 +88,10 @@ export const handleServiceAccountProxyPayment = async (
     }
     
     invoiceAmount = invoiceValidation.amount!;
-    const serviceFee = Math.ceil(invoiceAmount * 0.005);
+    const serviceFee = invoiceAmount * 0.005;
     totalAmount = invoiceAmount + serviceFee;
     
-    log(`Service account proxy payment: ${invoiceAmount} sats + ${serviceFee} sats fee = ${totalAmount} sats total`, "info");
+    log(`Service account proxy payment: ${invoiceAmount} sats + ${serviceFee.toFixed(3)} sats fee = ${totalAmount.toFixed(3)} sats total`, "info");
     
     botServiceAccount = await getBotServiceAccount();
     if (!botServiceAccount.success || !botServiceAccount.nwcClient) {
@@ -113,7 +113,6 @@ export const handleServiceAccountProxyPayment = async (
       return { success: false, error: "Failed to create proxy invoice - no invoice returned" };
     }
     
-    // 4. El usuario paga al bot
     let userPayment;
     try {
       userPayment = await userNwcClient.payInvoice({
@@ -177,7 +176,7 @@ export const handleServiceAccountProxyPayment = async (
     }
 
     const feesPaid = botPayment.fees_paid ? Number(botPayment.fees_paid.toString()) / 1000 : 0;
-    log(`Proxy payment successful: ${invoiceAmount} sats paid, ${serviceFee} sats fee collected`, "info");
+    log(`Proxy payment successful: ${invoiceAmount} sats paid, ${serviceFee.toFixed(3)} sats fee collected`, "info");
     
     return {
       success: true,
