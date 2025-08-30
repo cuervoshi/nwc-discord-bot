@@ -589,7 +589,20 @@ const initializeBotAccount = async (): Promise<{ success: boolean; message?: str
       });
 
       if (existingBotAccount) {
-        log(`Replacing existing failed bot account with new one...`, "info");
+        const recreateWalletService = process.env.RECREATE_WALLET_SERVICE === 'true';
+        
+        if (!recreateWalletService) {
+          const errorMessage = `❌ **Bot service account connection failed and RECREATE_WALLET_SERVICE is not enabled.**\n\n` +
+            `The bot already has a service account associated but the connection is not working.\n` +
+            `To recreate the bot's service wallet, set the environment variable:\n` +
+            `RECREATE_WALLET_SERVICE=true\n\n` +
+            `Current error: ${botServiceResult.message}`;
+          
+          log(`Bot service account connection failed and RECREATE_WALLET_SERVICE is not enabled. Crashing application.`, "err");
+          throw new Error(errorMessage);
+        }
+
+        log(`RECREATE_WALLET_SERVICE=true detected. Replacing existing failed bot account with new one...`, "info");
 
         await accountsCache.delete(`account:bot-service`);
 
