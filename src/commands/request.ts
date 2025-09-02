@@ -11,7 +11,7 @@ const create = () => {
   const command = new SlashCommandBuilder()
     .setName("request")
     .setDescription("Request payment for an invoice")
-    .addNumberOption((opt) =>
+    .addIntegerOption((opt) =>
       opt
         .setName("amount")
         .setDescription("The amount of satoshis to pay in the invoice")

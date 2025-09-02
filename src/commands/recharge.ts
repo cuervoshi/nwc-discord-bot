@@ -17,7 +17,7 @@ const create = () => {
   const command = new SlashCommandBuilder()
     .setName("recharge")
     .setDescription("Recharge your lightning network account with an invoice")
-    .addNumberOption((opt) =>
+    .addIntegerOption((opt) =>
       opt
         .setName("amount")
         .setDescription("The amount of satoshis to pay in the invoice")

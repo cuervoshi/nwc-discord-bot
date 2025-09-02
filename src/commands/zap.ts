@@ -12,7 +12,7 @@ const create = () => {
     .addUserOption((opt) =>
       opt.setName("user").setDescription("User to zap").setRequired(true)
     )
-    .addNumberOption((opt) =>
+    .addIntegerOption((opt) =>
       opt
         .setName("amount")
         .setDescription("The amount of satoshis to transfer")

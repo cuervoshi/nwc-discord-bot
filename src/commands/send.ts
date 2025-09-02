@@ -20,7 +20,7 @@ const create = () => {
         .setDescription("Lightning network address (LUD16) or LNURL")
         .setRequired(true)
     )
-    .addNumberOption((opt) =>
+    .addIntegerOption((opt) =>
       opt
         .setName("amount")
         .setDescription("The amount in satoshis you want to send")
