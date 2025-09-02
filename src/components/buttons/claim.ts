@@ -8,7 +8,7 @@ import {
   getFaucet,
 } from "../../handlers/faucet.js";
 import { log } from "../../handlers/log.js";
-import { SimpleLock } from "../../handlers/SimpleLock.js";
+import PQueue from "p-queue";
 import { AuthorConfig } from "../../utils/helperConfig.js";
 import {
   EphemeralMessageResponse,
@@ -17,12 +17,6 @@ import {
 import { handleInvoicePayment } from "../../handlers/payments.js";
 import { Faucet } from "../../types/index.js";
 import { NWCClient } from "@getalby/sdk";
-
-interface QueueItem {
-  operation: 'claim' | 'close';
-  interaction: ButtonInteraction;
-  faucet: Faucet;
-}
 
 interface InvoiceDetails {
   invoice: string;
@@ -44,44 +38,102 @@ interface ServiceAccountResult {
 }
 
 const customId = "claim";
+const faucetQueues = new Map<string, PQueue>();
 
-const faucetLocks = new Map<string, SimpleLock>();
-const faucetQueues = new Map<string, QueueItem[]>();
-
-const getFaucetLock = (faucetId: string): SimpleLock => {
-  if (!faucetLocks.has(faucetId)) {
-    faucetLocks.set(faucetId, new SimpleLock());
+const getFaucetQueue = (faucetId: string): PQueue => {
+  if (!faucetId || typeof faucetId !== 'string') {
+    throw new Error("Invalid faucet ID");
   }
-  return faucetLocks.get(faucetId)!;
+
+  if (!faucetQueues.has(faucetId)) {
+    const queue = new PQueue({
+      concurrency: 1,
+      timeout: 15000
+    });
+
+    queue.on('add', () => {
+      log(`Item added to faucet ${faucetId} queue - Size: ${queue.size}`, "info");
+    });
+
+    queue.on('active', () => {
+      log(`Processing item from faucet ${faucetId} queue - Pending: ${queue.pending}`, "info");
+    });
+
+    queue.on('completed', () => {
+      log(`Item completed in faucet ${faucetId} queue - Size: ${queue.size}`, "info");
+    });
+
+    queue.on('error', (error) => {
+      log(`Error in faucet ${faucetId} queue: ${error}`, "err");
+    });
+
+    queue.on('idle', () => {
+      log(`Faucet ${faucetId} queue is idle - Size: ${queue.size}`, "info");
+    });
+
+    faucetQueues.set(faucetId, queue);
+  }
+  return faucetQueues.get(faucetId)!;
 };
 
-const processFaucetQueue = async (faucetId: string): Promise<void> => {
-  const queue = faucetQueues.get(faucetId) || [];
-  
-  while (queue.length > 0) {
-    const { operation, interaction, faucet } = queue.shift()!;
-    const lock = getFaucetLock(faucetId);
-    const release = await lock.acquire();
-    
-    log(`Lock acquired for faucet ${faucetId} - Operation: ${operation}`, "info");
-    
+const addToFaucetQueue = async (faucetId: string, operation: 'claim' | 'close', interaction: ButtonInteraction, faucet: Faucet): Promise<void> => {
+  if (!faucet || !faucet.id) {
+    throw new Error("Invalid faucet data");
+  }
+
+  const queue = getFaucetQueue(faucetId);
+
+  log(`Adding ${operation} operation to faucet ${faucetId} queue for user: ${interaction.user.username}`, "info");
+
+  await queue.add(async () => {
+    log(`Executing ${operation} operation for faucet ${faucetId} - User: ${interaction.user.username}`, "info");
+
     try {
       if (operation === 'claim') {
         await handleClaim(faucet, interaction);
       } else if (operation === 'close') {
         await handleClose(faucet, interaction);
       }
-    } finally {
-      log(`Lock released for faucet ${faucetId}`, "info");
-      release();
+    } catch (error) {
+      log(`Error executing ${operation} operation for faucet ${faucetId}: ${error}`, "err");
+
+      try {
+        if (operation === 'claim') {
+          EphemeralMessageResponse(interaction, `❌ **Claim failed:** ${error.message || 'Unknown error'}`);
+        } else if (operation === 'close') {
+          EphemeralMessageResponse(interaction, `❌ **Close failed:** ${error.message || 'Unknown error'}`);
+        }
+      } catch (sendError) {
+        log(`Failed to send error message to user: ${sendError}`, "err");
+      }
+
+      throw error;
     }
-  }
+  });
 };
 
 const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Promise<void> => {
   try {
     const userId: string = interaction.user.id;
     const faucetId: string = faucet.id;
+
+    const currentFaucet = await getFaucet(faucetId);
+
+    if (!currentFaucet) {
+      throw new Error("Faucet not found in database");
+    }
+
+    if (currentFaucet.closed) {
+      throw new Error("The faucet was closed while waiting in queue");
+    }
+
+    if (currentFaucet.claimersIds.includes(userId)) {
+      throw new Error("You can only claim the reward once");
+    }
+
+    if (currentFaucet.claimersIds.length >= currentFaucet.maxUses) {
+      throw new Error("All sats have been claimed");
+    }
 
     const userWallet: AccountResult = await getAccount(interaction, userId);
     const faucetWallet: ServiceAccountResult = await getBotServiceAccount();
@@ -129,7 +181,7 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     );
   } catch (err: any) {
     log(`Error in handleClaim for @${interaction.user.username}: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "❌ **An error occurred while claiming the invoice.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**\n\nPlease try again.");
+    throw err;
   }
 };
 
@@ -139,6 +191,20 @@ const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     const faucetId: string = faucet.id;
 
     log(`${user.username} closing faucet ${faucetId}`, "info");
+
+    const currentFaucet = await getFaucet(faucetId);
+
+    if (!currentFaucet) {
+      throw new Error("Faucet not found in database");
+    }
+
+    if (currentFaucet.closed) {
+      throw new Error("The faucet was already closed");
+    }
+
+    if (currentFaucet.owner_id !== user.id) {
+      throw new Error("You cannot close a faucet that does not belong to you");
+    }
 
     const wallet: AccountResult = await getAccount(interaction, user.id);
     const faucetWallet: ServiceAccountResult = await getBotServiceAccount();
@@ -181,7 +247,7 @@ const handleClose = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     }
   } catch (err: any) {
     log(`Error in handleClose for @${interaction.user.username}: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "An error occurred while closing the faucet");
+    throw err;
   }
 };
 
@@ -192,7 +258,9 @@ const updateMessage = async (faucetId: string, fieldInfo: any, message: Message)
 
     let claimersOutput: string = ``;
     faucet.claimersIds.forEach((claimer: string) => {
-      claimersOutput += `<@${claimer}>`;
+      claimersOutput += `
+                      <@${claimer}>
+                    `;
       claimersOutput = dedent(claimersOutput);
     });
 
@@ -322,24 +390,38 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
       );
     }
 
-    if (!faucetQueues.has(faucetId)) {
-      faucetQueues.set(faucetId, []);
-    }
-
-    faucetQueues.get(faucetId)!.push({
-      operation: 'claim',
-      interaction,
-      faucet
-    });
-
-    if (faucetQueues.get(faucetId)!.length === 1) {
-      processFaucetQueue(faucetId);
-    }
+    await addToFaucetQueue(faucetId, 'claim', interaction, faucet);
 
   } catch (err: any) {
     log(`Error when @${interaction.user.username} tried to claim a faucet: ${err.message}`, "err");
-    EphemeralMessageResponse(interaction, "❌ **An error occurred while claiming the invoice.**\n\n**Please ensure you have allowed at least 10 sats for routing fees in your NWC connection, as this is often the cause of payment failures.**\n\nPlease try again.");
+    EphemeralMessageResponse(interaction, `❌ **Error:** ${err.message || 'Unknown error occurred'}`);
   }
 };
 
-export { customId, invoke, faucetQueues, processFaucetQueue };
+export const addCloseOperation = async (faucet: Faucet, interaction: ButtonInteraction): Promise<void> => {
+  const faucetId = faucet.id;
+  await addToFaucetQueue(faucetId, 'close', interaction, faucet);
+};
+
+export const cleanupFaucetQueue = (faucetId: string): void => {
+  if (faucetQueues.has(faucetId)) {
+    const queue = faucetQueues.get(faucetId)!;
+    queue.clear();
+    faucetQueues.delete(faucetId);
+    log(`Cleaned up queue for faucet ${faucetId}`, "info");
+  }
+};
+
+export const getQueueStats = (faucetId: string) => {
+  if (faucetQueues.has(faucetId)) {
+    const queue = faucetQueues.get(faucetId)!;
+    return {
+      size: queue.size,
+      pending: queue.pending,
+      isPaused: queue.isPaused
+    };
+  }
+  return null;
+};
+
+export { customId, invoke, faucetQueues };

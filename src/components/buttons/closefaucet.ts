@@ -5,7 +5,7 @@ import {
   EphemeralMessageResponse,
   FollowUpEphemeralResponse,
 } from "../../utils/helperFunctions.js";
-import { faucetQueues, processFaucetQueue } from "./claim.js";
+import { addCloseOperation } from "./claim.js";
 import { Faucet } from "../../types/index.js";
 
 const customId = "closefaucet";
@@ -53,19 +53,7 @@ const invoke = async (interaction: ButtonInteraction): Promise<void> => {
       );
     }
 
-    if (!faucetQueues.has(faucetId)) {
-      faucetQueues.set(faucetId, []);
-    }
-
-    faucetQueues.get(faucetId)!.push({
-      operation: 'close',
-      interaction,
-      faucet
-    });
-
-    if (faucetQueues.get(faucetId)!.length === 1) {
-      processFaucetQueue(faucetId);
-    }
+    await addCloseOperation(faucet, interaction);
 
   } catch (err: any) {
     log(`Error when @${interaction.user.username} tried to close a faucet: ${err.message}`, "err");

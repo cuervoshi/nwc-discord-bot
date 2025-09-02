@@ -4,7 +4,7 @@ import { trackSatsSent } from "../handlers/ranking.js";
 import { log } from "../handlers/log.js";
 import { ExtendedClient } from "types/discord.js";
 import { getAccountInternal } from "../handlers/accounts.js";
-import { SimpleLock } from "../handlers/SimpleLock.js";
+import PQueue from "p-queue";
 
 const once = false;
 const name = "messageReactionAdd";
@@ -18,34 +18,56 @@ interface ZapQueueItem {
   zapMessage: string;
 }
 
-const userZapLocks = new Map<string, SimpleLock>();
-const userZapQueues = new Map<string, ZapQueueItem[]>();
+const userZapQueues = new Map<string, PQueue>();
 const userProcessingMessages = new Map<string, Set<string>>();
 
-const getUserZapLock = (userId: string): SimpleLock => {
-  if (!userZapLocks.has(userId)) {
-    userZapLocks.set(userId, new SimpleLock());
+const getUserZapQueue = (userId: string): PQueue => {
+  if (!userZapQueues.has(userId)) {
+    const queue = new PQueue({ 
+      concurrency: 1,
+      timeout: 15000
+    });
+
+    queue.on('add', () => {
+      log(`Item added to user ${userId} zap queue - Size: ${queue.size}`, "info");
+    });
+
+    queue.on('active', () => {
+      log(`Processing item from user ${userId} zap queue - Pending: ${queue.pending}`, "info");
+    });
+
+    queue.on('completed', () => {
+      log(`Item completed in user ${userId} zap queue - Size: ${queue.size}`, "info");
+    });
+
+    queue.on('error', (error) => {
+      log(`Error in user ${userId} zap queue: ${error}`, "err");
+    });
+
+    queue.on('idle', () => {
+      log(`User ${userId} zap queue is idle - Size: ${queue.size}`, "info");
+    });
+
+    userZapQueues.set(userId, queue);
   }
-  return userZapLocks.get(userId)!;
+  return userZapQueues.get(userId)!;
 };
 
-const processUserZapQueue = async (userId: string): Promise<void> => {
-  const queue = userZapQueues.get(userId) || [];
-  
-  while (queue.length > 0) {
-    const { user, reaction, receiver, userZapAmount, zapMessage } = queue.shift()!;
-    const lock = getUserZapLock(userId);
-    const release = await lock.acquire();
-    
-    log(`Lock reaction acquired for user ${userId} - Processing zap`, "info");
-    
+const addToZapQueue = async (userId: string, zapData: ZapQueueItem): Promise<void> => {
+  const queue = getUserZapQueue(userId);
+
+  log(`Adding zap operation to user ${userId} queue for message: ${zapData.reaction.message.id}`, "info");
+
+  await queue.add(async () => {
+    log(`Executing zap operation for user ${userId} - Message: ${zapData.reaction.message.id}`, "info");
+
     try {
-      await processZap(user, reaction, receiver, userZapAmount, zapMessage);
-    } finally {
-      log(`Lock reaction released for user ${userId}`, "info");
-      release();
+      await processZap(zapData.user, zapData.reaction, zapData.receiver, zapData.userZapAmount, zapData.zapMessage);
+    } catch (error) {
+      log(`Error executing zap operation for user ${userId}: ${error}`, "err");
+      throw error;
     }
-  }
+  });
 };
 
 const processZap = async (
@@ -215,17 +237,9 @@ async function invoke(client: ExtendedClient, reaction: MessageReaction | Partia
       receiver,
       userZapAmount,
       zapMessage
-    }
+    };
 
-    if (!userZapQueues.has(user.id)) {
-      userZapQueues.set(user.id, [zapQueueItem]);
-    } else {
-      userZapQueues.get(user.id).push(zapQueueItem);
-    }
-
-    if (userZapQueues.get(user.id).length === 1) {
-      processUserZapQueue(user.id);
-    }
+    await addToZapQueue(user.id, zapQueueItem);
 
   } catch (err: any) {
     log(
@@ -234,5 +248,26 @@ async function invoke(client: ExtendedClient, reaction: MessageReaction | Partia
     );
   }
 }
+
+export const cleanupUserZapQueue = (userId: string): void => {
+  if (userZapQueues.has(userId)) {
+    const queue = userZapQueues.get(userId)!;
+    queue.clear();
+    userZapQueues.delete(userId);
+    log(`Cleaned up zap queue for user ${userId}`, "info");
+  }
+};
+
+export const getUserZapQueueStats = (userId: string) => {
+  if (userZapQueues.has(userId)) {
+    const queue = userZapQueues.get(userId)!;
+    return {
+      size: queue.size,
+      pending: queue.pending,
+      isPaused: queue.isPaused
+    };
+  }
+  return null;
+};
 
 export { once, name, invoke };
