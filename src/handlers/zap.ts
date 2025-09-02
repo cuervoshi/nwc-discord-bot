@@ -44,6 +44,13 @@ const zap = async (
         message: "You cannot send sats to yourself.",
       };
 
+    if (receiver.bot) {
+      return {
+        success: false,
+        message: "You cannot send sats to bots.",
+      };
+    }
+
     const senderBalance = senderWallet.balance || 0;
     const isValidAmount: BalanceValidationResult = validateAmountAndBalance(
       amount,

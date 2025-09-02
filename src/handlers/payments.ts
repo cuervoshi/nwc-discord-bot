@@ -12,8 +12,10 @@ const attemptRefund = async (
   try {
     log(`Creating refund invoice for ${totalAmount} sats`, "info");
     
+    const refundAmountInMillisats = Math.round(totalAmount * 1000);
+    
     const refundInvoice = await userNwcClient.makeInvoice({
-      amount: totalAmount * 1000,
+      amount: refundAmountInMillisats,
       description: `Refund for failed proxy payment of ${originalAmount} sats`,
     });
     
@@ -91,6 +93,8 @@ export const handleServiceAccountProxyPayment = async (
     const serviceFee = invoiceAmount * 0.005;
     totalAmount = invoiceAmount + serviceFee;
     
+    totalAmount = Math.round(totalAmount * 1000) / 1000;
+    
     log(`Service account proxy payment: ${invoiceAmount} sats + ${serviceFee.toFixed(3)} sats fee = ${totalAmount.toFixed(3)} sats total`, "info");
     
     botServiceAccount = await getBotServiceAccount();
@@ -100,8 +104,10 @@ export const handleServiceAccountProxyPayment = async (
     
     let proxyInvoice;
     try {
+      const amountInMillisats = Math.round(totalAmount * 1000);
+      
       proxyInvoice = await botServiceAccount.nwcClient.makeInvoice({
-        amount: totalAmount * 1000,
+        amount: amountInMillisats,
         description: `Proxy payment for ${invoiceAmount} sats${username ? ` from ${username}` : ''}`,
       });
     } catch (invoiceError: any) {

@@ -80,10 +80,17 @@ export const requiredEnvVar = (key: string): string => {
 };
 
 const validateAmountAndBalance = (amount: number, balance: number, isServiceAccount: boolean = false): BalanceValidationResult => {
+  if (!Number.isInteger(amount)) {
+    return {
+      status: false,
+      content: "Amount must be a whole number (no decimals allowed).",
+    };
+  }
+
   if (amount <= 0)
     return {
       status: false,
-      content: "You cannot use negative numbers or decimals",
+      content: "You cannot use negative numbers or zero.",
     };
 
   if (amount > balance)
