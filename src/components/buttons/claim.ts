@@ -98,7 +98,7 @@ const handleClaim = async (faucet: Faucet, interaction: ButtonInteraction): Prom
     const paymentResult = await handleInvoicePayment(
       faucetWallet.nwcClient,
       invoiceDetails.invoice,
-      true,
+      false,
       interaction.user.username
     );
 
