@@ -97,11 +97,9 @@ const processZap = async (
         );
 
         if (reaction.message.channel && reaction.message.channel.isTextBased() && 'send' in reaction.message.channel) {
+          const messageLink = `https://discord.com/channels/${reaction.message.guild?.id}/${reaction.message.channel.id}/${reaction.message.id}`;
           await (reaction.message.channel as any).send({
-            content: `⚡ ${user.toString()} zapped you with ${userZapAmount} sats for this message`,
-            reply: {
-              messageReference: reaction.message.id
-            }
+            content: `⚡ ${user.toString()} reacted to ${receiver.toString()}'s [message](${messageLink}) and sent ${userZapAmount} sats`
           });
         }
       } catch (err: any) {
