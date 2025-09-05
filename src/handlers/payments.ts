@@ -33,7 +33,7 @@ const attemptRefund = async (
       invoice: refundInvoice.invoice,
     });
     
-    if (!refundPayment || !refundPayment.preimage) {
+    if (!refundPayment || !('preimage' in refundPayment)) {
       log(`Failed to pay refund invoice`, "err");
       return { 
         success: false, 
@@ -129,7 +129,7 @@ export const handleServiceAccountProxyPayment = async (
       return { success: false, error: `User payment to bot failed: ${userPaymentError.message}` };
     }
     
-    if (!userPayment || !userPayment.preimage) {
+    if (!userPayment || !('preimage' in userPayment)) {
       return { success: false, error: "User payment to bot failed - no preimage returned" };
     }
     
@@ -161,7 +161,7 @@ export const handleServiceAccountProxyPayment = async (
       }
     }
     
-    if (!botPayment || !botPayment.preimage) {
+    if (!botPayment || !('preimage' in botPayment)) {
       log(`Bot payment failed - no preimage returned, initiating refund of ${totalAmount} sats to user`, "err");
       
       const refundResult = await attemptRefund(userNwcClient, botServiceAccount.nwcClient, totalAmount, invoiceAmount);
@@ -236,12 +236,13 @@ export const handleInvoicePayment = async (
 ): Promise<{ success: boolean; preimage?: string; fees_paid?: number; error?: string }> => {
   try {
     if (!isServiceAccount) {
-      // Para cuentas normales, pago directo
       const response = await nwcClient.payInvoice({
         invoice: invoice,
       });
 
-      if (!response || !response.preimage) {
+      log(`Invoice payment response: ${JSON.stringify(response)}`, "info");
+
+      if (!response || !('preimage' in response)) {
         return { success: false, error: "Error paying invoice - no preimage returned" };
       }
 
