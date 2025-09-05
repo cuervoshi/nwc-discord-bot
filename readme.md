@@ -4,6 +4,8 @@ A Discord bot that allows users to connect Lightning Network wallets through Nos
 
 **Fee Structure:** The bot charges a configurable commission (default: 0.5%) on all transfers made with accounts created by the bot. This can be adjusted in the configuration.
 
+**Important Note:** The bot requires 10 sats to be loaded initially due to NWC routing limitations. These sats cannot be spent and are reserved for routing fees.
+
 ## Setup
 
 Rename .env.example to .env and replace your enviroment vars:
